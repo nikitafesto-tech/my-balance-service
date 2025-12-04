@@ -23,8 +23,9 @@ services:
   casdoor:
     image: casbin/casdoor:latest
     restart: always
+    # ВОЗВРАЩАЕМ ПОРТ БЕЗОПАСНО (только для localhost)
     ports:
-      - "80:8000"
+      - "127.0.0.1:8000:8000" 
     entrypoint: /bin/sh -c './server --createDatabase=true'
     environment:
       driverName: postgres
@@ -39,16 +40,17 @@ services:
   app:
     build: ./app
     restart: always
-    command: uvicorn main:app --host 0.0.0.0 --port 8081 --reload
+    command: uvicorn main:app --host 0.0.0.0 --port 8081
+    # ВОЗВРАЩАЕМ ПОРТ БЕЗОПАСНО
     ports:
-      - "8081:8081"
+      - "127.0.0.1:8081:8081"
     environment:
       DB_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
-      CASDOOR_PUBLIC_URL: "http://localhost"
-      # --- ДОБАВЛЕННЫЕ ПЕРЕМЕННЫЕ ---
       CASDOOR_CLIENT_ID: ${CASDOOR_CLIENT_ID}
       CASDOOR_CLIENT_SECRET: ${CASDOOR_CLIENT_SECRET}
-      # ------------------------------
+      # ВАЖНО: Мы пробрасываем новые переменные для ссылок
+      SITE_URL: ${SITE_URL}
+      AUTH_URL: ${AUTH_URL}
     depends_on:
       - casdoor
       - db
@@ -57,8 +59,24 @@ services:
     networks:
       - app_network
 
+  # 4. Caddy (Швейцар)
+  caddy:
+    image: caddy:latest
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - app_network
+
 volumes:
   postgres_data:
+  caddy_data:
+  caddy_config:
 
 networks:
   app_network:

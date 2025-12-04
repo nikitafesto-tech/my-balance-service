@@ -1,0 +1,9 @@
+# 1. Личный кабинет (Твой сайт)
+lk.neirosetim.ru {
+    reverse_proxy app:8081
+}
+
+# 2. Авторизация (Casdoor)
+auth.neirosetim.ru {
+    reverse_proxy casdoor:8000
+}
