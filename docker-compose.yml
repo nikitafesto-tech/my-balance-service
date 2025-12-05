@@ -51,6 +51,9 @@ services:
       # ВАЖНО: Мы пробрасываем новые переменные для ссылок
       SITE_URL: ${SITE_URL}
       AUTH_URL: ${AUTH_URL}
+      # --- ВОТ ОНА, НЕДОСТАЮЩАЯ СТРОКА ---
+      CASDOOR_CERT_FILE: ${CASDOOR_CERT_FILE}
+      # -----------------------------------
     depends_on:
       - casdoor
       - db
