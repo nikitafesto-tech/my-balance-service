@@ -201,3 +201,4 @@ def logout(request: Request, db: Session = Depends(get_db)):
     response = RedirectResponse("/")
     response.delete_cookie("session_id")
     return response
+# update
