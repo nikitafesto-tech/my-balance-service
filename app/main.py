@@ -26,6 +26,7 @@ class UserWallet(Base):
     id = Column(Integer, primary_key=True, index=True)
     casdoor_id = Column(String, unique=True, index=True)
     email = Column(String)
+    phone = Column(String, nullable=True)  # <-- НОВОЕ ПОЛЕ
     name = Column(String, nullable=True)
     avatar = Column(String, nullable=True)
     balance = Column(Float, default=0.0)
@@ -69,7 +70,7 @@ sdk = CasdoorSDK(
     front_endpoint=AUTH_URL
 )
 
-# 3. МАРШРУТЫ
+# --- МАРШРУТЫ ---
 
 @app.get("/")
 def home(request: Request, db: Session = Depends(get_db)):
@@ -85,7 +86,7 @@ def home(request: Request, db: Session = Depends(get_db)):
             <div style="display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif;">
                 <div style="text-align: center;">
                     <h1>Сервис Баланса</h1>
-                    <a href="/login"><button style="padding: 15px 30px; font-size: 18px; cursor: pointer; background: #000; color: #fff; border: none; border-radius: 5px;">ВОЙТИ</button></a>
+                    <a href="/login"><button style="padding: 15px 30px; background: #000; color: #fff; border: none; border-radius: 5px; cursor: pointer;">ВОЙТИ</button></a>
                 </div>
             </div>
         ''')
@@ -94,23 +95,24 @@ def home(request: Request, db: Session = Depends(get_db)):
         user_info = sdk.parse_jwt_token(token)
         user_id = user_info.get("id")
         
-        # --- УЛУЧШЕННАЯ ЛОГИКА ДАННЫХ ---
-        raw_email = user_info.get("email", "")
+        # Данные из Casdoor
         raw_name = user_info.get("name")
-        raw_avatar = user_info.get("avatar")
+        raw_email = user_info.get("email", "")
+        raw_avatar = user_info.get("avatar", "")
+        raw_phone = user_info.get("phone", "") # Получаем телефон
 
-        # 1. Если имя пустое или равно ID - берем из почты
+        # Умная логика имени
         if not raw_name or raw_name == user_id:
-            raw_name = raw_email.split("@")[0] if "@" in raw_email else "Пользователь"
+             # Если имя пустое или равно ID, пробуем взять логин из почты
+             raw_name = raw_email.split("@")[0] if "@" in raw_email else "Пользователь"
 
-        # 2. Обработка аватарки
+        # Умная логика аватарки
         final_avatar = ""
         if raw_avatar and "http" in raw_avatar:
             final_avatar = raw_avatar
-        elif raw_avatar: # Если пришел ID от Яндекса
+        elif raw_avatar:
              final_avatar = f"https://avatars.yandex.net/get-yapic/{raw_avatar}/islands-200"
         else:
-             # Если аватарки нет вообще - генерируем по имени
              final_avatar = f"https://ui-avatars.com/api/?name={raw_name}&background=random"
 
         wallet = db.query(UserWallet).filter(UserWallet.casdoor_id == user_id).first()
@@ -119,44 +121,53 @@ def home(request: Request, db: Session = Depends(get_db)):
             wallet = UserWallet(
                 casdoor_id=user_id, 
                 email=raw_email, 
+                phone=raw_phone,
                 name=raw_name,
                 avatar=final_avatar,
                 balance=0.0
             )
             db.add(wallet)
         else:
-            # Обновляем данные при каждом входе
+            # Обновляем данные
             wallet.name = raw_name
             wallet.avatar = final_avatar
-            # Email лучше не обновлять, если он не пустой
+            wallet.phone = raw_phone
+            # Email обновляем, только если он не пустой и не ID
+            if raw_email and raw_email != user_id:
+                wallet.email = raw_email
         
         db.commit()
         db.refresh(wallet)
             
+        # --- НОВЫЙ ДИЗАЙН С ШАПКОЙ ---
         return HTMLResponse(f'''
-            <div style="font-family: sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <h2 style="margin: 0;">Личный кабинет</h2>
-                    <a href="/logout" style="color: #e74c3c; text-decoration: none;">Выйти</a>
-                </div>
-                <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-                
-                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
-                    <img src="{wallet.avatar}" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;" onerror="this.src='https://ui-avatars.com/api/?name=User'">
-                    <div>
-                        <div style="font-size: 20px; font-weight: bold;">{wallet.name}</div>
-                        <div style="color: #777;">{wallet.email}</div>
+            <body style="margin: 0; font-family: sans-serif; background: #f5f5f5;">
+                <header style="background: #fff; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <div style="font-weight: bold; font-size: 18px;">MyService</div>
+                    
+                    <div style="display: flex; align-items: center; gap: 10px; cursor: pointer;" onclick="alert('Переход в настройки профиля (пока тут)')">
+                        <div style="text-align: right;">
+                            <div style="font-weight: bold; font-size: 14px;">{wallet.name}</div>
+                            <div style="font-size: 12px; color: #888;">{wallet.email}</div>
+                        </div>
+                        <img src="{wallet.avatar}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
+                    </div>
+                </header>
+
+                <div style="max-width: 800px; margin: 40px auto; padding: 20px;">
+                    <div style="background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); text-align: center;">
+                        <div style="color: #888; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Ваш баланс</div>
+                        <div style="font-size: 64px; font-weight: bold; color: #333; margin: 10px 0;">{wallet.balance} ₽</div>
+                        
+                        <div style="margin-top: 30px;">
+                             <a href="/logout" style="color: #e74c3c; text-decoration: none; border-bottom: 1px dashed #e74c3c;">Выйти из аккаунта</a>
+                        </div>
                     </div>
                 </div>
-                
-                <div style="background: #f8f9fa; padding: 30px; border-radius: 10px; text-align: center;">
-                    <div style="font-size: 14px; color: #555; margin-bottom: 5px;">ВАШ БАЛАНС</div>
-                    <div style="font-size: 48px; color: #27ae60; font-weight: bold;">{wallet.balance} ₽</div>
-                </div>
-            </div>
+            </body>
         ''')
     except Exception as e:
-        return HTMLResponse(f"Ошибка: {e} <br><a href='/logout'>Сброс</a>")
+        return HTMLResponse(f"Ошибка авторизации: {e} <br><a href='/logout'>Сброс</a>")
 
 @app.get("/login")
 def login(provider: str = None):
