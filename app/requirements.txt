@@ -5,3 +5,4 @@ casdoor
 requests
 sqlalchemy
 jinja2
+httpx

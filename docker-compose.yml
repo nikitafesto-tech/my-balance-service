@@ -51,6 +51,9 @@ services:
       # ВАЖНО: Мы пробрасываем новые переменные для ссылок
       SITE_URL: ${SITE_URL}
       AUTH_URL: ${AUTH_URL}
+      # --- НОВЫЕ СТРОКИ ДЛЯ VK ---
+      VK_CLIENT_ID: ${VK_CLIENT_ID}
+      VK_CLIENT_SECRET: ${VK_CLIENT_SECRET}
       # --- ВОТ ОНА, НЕДОСТАЮЩАЯ СТРОКА ---
       CASDOOR_CERT_FILE: ${CASDOOR_CERT_FILE}
       # -----------------------------------
