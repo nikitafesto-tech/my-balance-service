@@ -14,14 +14,23 @@ import httpx
 
 app = FastAPI()
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
+# --- ВАЖНОЕ ИСПРАВЛЕНИЕ ПУТЕЙ ---
+# Определяем, где лежит этот файл main.py
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# Строим полные пути к папкам
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
+
+# Подключаем папки по абсолютным путям
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
+# --------------------------------
 
 # --- НАСТРОЙКИ ---
 SITE_URL = os.getenv("SITE_URL", "http://localhost:8081")
 AUTH_URL = os.getenv("AUTH_URL", "http://localhost:8000")
 
-# Ключи провайдеров (Добавь их в .env)
+# Ключи провайдеров
 VK_CLIENT_ID = os.getenv("VK_CLIENT_ID")
 VK_CLIENT_SECRET = os.getenv("VK_CLIENT_SECRET")
 VK_REDIRECT_URI = f"{SITE_URL}/callback/vk"
@@ -30,11 +39,11 @@ GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 GOOGLE_REDIRECT_URI = f"{SITE_URL}/callback/google-direct"
 
-YANDEX_CLIENT_ID = os.getenv("YANDEX_CLIENT_ID") # Client ID из Яндекса
-YANDEX_CLIENT_SECRET = os.getenv("YANDEX_CLIENT_SECRET") # Client Secret из Яндекса
+YANDEX_CLIENT_ID = os.getenv("YANDEX_CLIENT_ID")
+YANDEX_CLIENT_SECRET = os.getenv("YANDEX_CLIENT_SECRET")
 YANDEX_REDIRECT_URI = f"{SITE_URL}/callback/yandex-direct"
 
-# Ключи Casdoor для API (нужны для синхронизации)
+# Ключи Casdoor API
 CASDOOR_CLIENT_ID = os.getenv("CASDOOR_CLIENT_ID")
 CASDOOR_CLIENT_SECRET = os.getenv("CASDOOR_CLIENT_SECRET")
 
@@ -80,15 +89,8 @@ def generate_pkce():
     return verifier, challenge
 
 async def sync_user_to_casdoor(user_data, provider_prefix):
-    """
-    Универсальная функция синхронизации.
-    user_data: словарь {id, name, avatar, email}
-    provider_prefix: 'vk', 'google', 'yandex'
-    """
     user_id = str(user_data.get("id"))
     full_name = user_data.get("name", "")
-    
-    # Создаем уникальный ID для Casdoor (например, google_12345)
     casdoor_username = f"{provider_prefix}_{user_id}"
     
     casdoor_user = {
@@ -103,22 +105,19 @@ async def sync_user_to_casdoor(user_data, provider_prefix):
         "properties": {}
     }
 
-    # Стучимся в Casdoor API
     api_url_add = "http://casdoor:8000/api/add-user"
     api_url_update = "http://casdoor:8000/api/update-user"
     
     async with httpx.AsyncClient() as client:
         try:
             auth = (CASDOOR_CLIENT_ID, CASDOOR_CLIENT_SECRET)
-            # Пробуем создать
             resp = await client.post(api_url_add, json=casdoor_user, auth=auth)
-            # Если такой уже есть (status != ok), обновляем данные
             if resp.json().get('status') != 'ok':
                 await client.post(api_url_update, json=casdoor_user, auth=auth)
         except Exception as e:
             print(f"Ошибка синхронизации с Casdoor: {e}")
     
-    return casdoor_username # Возвращаем ID, который запишем в базу
+    return casdoor_username
 
 # --- МАРШРУТЫ ---
 
@@ -134,8 +133,6 @@ def home(request: Request, db: Session = Depends(get_db)):
     if not token:
         return RedirectResponse("/login")
     
-    # Теперь token - это всегда ID в нашей базе (vk_..., google_..., yandex_...)
-    # Логика едина для всех
     wallet = db.query(UserWallet).filter(UserWallet.casdoor_id == token).first()
     
     if not wallet:
@@ -153,9 +150,7 @@ def home(request: Request, db: Session = Depends(get_db)):
 def login_page(request: Request):
     return templates.TemplateResponse("signin.html", {"request": request})
 
-# ----------------------------------------------------
-# 1. ВКОНТАКТЕ (Direct Bridge)
-# ----------------------------------------------------
+# 1. ВКОНТАКТЕ
 @app.get("/login/vk-direct")
 def login_vk_direct():
     verifier, challenge = generate_pkce()
@@ -192,7 +187,6 @@ async def callback_vk(code: str, request: Request, db: Session = Depends(get_db)
         user_resp = await client.post("https://id.vk.com/oauth2/user_info", data={"access_token": access_token, "client_id": VK_CLIENT_ID})
         user_info = user_resp.json().get("user", {})
 
-    # Формируем данные
     full_name = f"{user_info.get('first_name', '')} {user_info.get('last_name', '')}".strip()
     clean_data = {
         "id": user_info.get("user_id"),
@@ -201,16 +195,11 @@ async def callback_vk(code: str, request: Request, db: Session = Depends(get_db)
         "email": user_info.get("email", ""),
         "phone": user_info.get("phone", "")
     }
-    
-    # Синхронизация и вход
     await finalize_login(clean_data, "vk", db)
     response = RedirectResponse("/")
-    response.set_cookie(key="session_id", value=str(uuid.uuid4()), httponly=True, samesite="lax")
     return update_session_cookie(response, clean_data, "vk", db)
 
-# ----------------------------------------------------
-# 2. GOOGLE (Direct Bridge)
-# ----------------------------------------------------
+# 2. GOOGLE
 @app.get("/login/google-direct")
 def login_google_direct():
     params = {
@@ -231,7 +220,9 @@ async def callback_google_direct(code: str, db: Session = Depends(get_db)):
             "client_id": GOOGLE_CLIENT_ID, "client_secret": GOOGLE_CLIENT_SECRET,
             "code": code, "grant_type": "authorization_code", "redirect_uri": GOOGLE_REDIRECT_URI
         })
-        access_token = token_resp.json().get("access_token")
+        token_json = token_resp.json()
+        access_token = token_json.get("access_token")
+        if not access_token: return HTMLResponse(f"Ошибка Google: {token_json}")
         
         user_resp = await client.get("https://www.googleapis.com/oauth2/v3/userinfo", params={"access_token": access_token})
         g_user = user_resp.json()
@@ -245,9 +236,7 @@ async def callback_google_direct(code: str, db: Session = Depends(get_db)):
     }
     return update_session_cookie(RedirectResponse("/"), clean_data, "google", db)
 
-# ----------------------------------------------------
-# 3. YANDEX (Direct Bridge)
-# ----------------------------------------------------
+# 3. YANDEX
 @app.get("/login/yandex-direct")
 def login_yandex_direct():
     params = {
@@ -270,7 +259,6 @@ async def callback_yandex_direct(code: str, db: Session = Depends(get_db)):
         user_resp = await client.get("https://login.yandex.ru/info?format=json", headers={"Authorization": f"OAuth {access_token}"})
         y_user = user_resp.json()
 
-    # Яндекс отдает аватарки специфично, берем дефолтную если нет
     avatar_id = y_user.get("default_avatar_id")
     avatar_url = f"https://avatars.yandex.net/get-yapic/{avatar_id}/islands-200" if avatar_id else ""
 
@@ -283,24 +271,14 @@ async def callback_yandex_direct(code: str, db: Session = Depends(get_db)):
     }
     return update_session_cookie(RedirectResponse("/"), clean_data, "yandex", db)
 
-# --- ОБЩАЯ ЛОГИКА СОХРАНЕНИЯ ---
+# --- SAVE & SESSION ---
 
 async def finalize_login(data, prefix, db):
-    # 1. Синхронизация с Casdoor (для админки)
-    # Запускаем в фоне, чтобы не ждать, или await (быстро)
-    casdoor_id = await sync_user_to_casdoor(data, prefix)
-    return casdoor_id
+    await sync_user_to_casdoor(data, prefix)
 
 def update_session_cookie(response, data, prefix, db):
-    # Эта функция: сохраняет в БД, создает сессию, ставит куку
-    import asyncio
-    # Синхронизация с Casdoor (хак для синхронного вызова в асинхронном контексте если надо, но лучше так)
-    # Для простоты вызовем sync внутри (он быстрый)
-    
-    # 1. Генерируем ID
     full_id = f"{prefix}_{data['id']}"
     
-    # 2. Сохраняем в нашу базу
     wallet = db.query(UserWallet).filter(UserWallet.casdoor_id == full_id).first()
     if not wallet:
         wallet = UserWallet(
@@ -314,7 +292,6 @@ def update_session_cookie(response, data, prefix, db):
         if data['email']: wallet.email = data['email']
     db.commit()
 
-    # 3. Сессия
     new_session_id = str(uuid.uuid4())
     db_session = UserSession(session_id=new_session_id, token=full_id)
     db.add(db_session)
