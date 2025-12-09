@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Depends, HTTPException, Form
+from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
@@ -8,13 +8,15 @@ from sqlalchemy.orm import sessionmaker, declarative_base, Session
 import os
 import urllib.parse
 import uuid
+# --- ИМПОРТЫ ДЛЯ VK ---
 import secrets
 import hashlib
 import base64
-import httpx 
+import httpx
 
 app = FastAPI()
 
+# --- ПОДКЛЮЧАЕМ ПАПКИ ---
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
@@ -22,7 +24,7 @@ templates = Jinja2Templates(directory="templates")
 SITE_URL = os.getenv("SITE_URL", "http://localhost:8081")
 AUTH_URL = os.getenv("AUTH_URL", "http://localhost:8000")
 
-# ВСТАВЬ СВОИ ДАННЫЕ
+# Настройки VK (Берем из ENV)
 VK_CLIENT_ID = os.getenv("VK_CLIENT_ID")
 VK_CLIENT_SECRET = os.getenv("VK_CLIENT_SECRET")
 VK_REDIRECT_URI = f"{SITE_URL}/callback/vk"
@@ -82,7 +84,8 @@ sdk = CasdoorSDK(
     front_endpoint=AUTH_URL
 )
 
-# --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
+# --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ VK ---
+
 def generate_pkce():
     verifier = secrets.token_urlsafe(32)
     m = hashlib.sha256()
@@ -91,13 +94,14 @@ def generate_pkce():
     return verifier, challenge
 
 async def sync_user_to_casdoor(vk_user):
-    """Синхронизирует пользователя VK в базу Casdoor"""
+    """Синхронизирует пользователя VK в базу Casdoor через API"""
     user_id = str(vk_user.get("user_id"))
     full_name = f"{vk_user.get('first_name', '')} {vk_user.get('last_name', '')}".strip()
     
+    # Формируем объект для Casdoor
     casdoor_user = {
         "owner": "users",
-        "name": f"vk_{user_id}", # Уникальное имя
+        "name": f"vk_{user_id}",
         "displayName": full_name,
         "avatar": vk_user.get("avatar", ""),
         "email": vk_user.get("email", ""),
@@ -107,14 +111,18 @@ async def sync_user_to_casdoor(vk_user):
         "properties": {}
     }
 
-    api_url = "http://casdoor:8000/api/add-user"
+    # Стучимся во внутренний API Casdoor
+    api_url_add = "http://casdoor:8000/api/add-user"
+    api_url_update = "http://casdoor:8000/api/update-user"
+    
     async with httpx.AsyncClient() as client:
         try:
             auth = (os.getenv("CASDOOR_CLIENT_ID"), os.getenv("CASDOOR_CLIENT_SECRET"))
-            resp = await client.post(api_url, json=casdoor_user, auth=auth)
-            
+            # Пробуем добавить
+            resp = await client.post(api_url_add, json=casdoor_user, auth=auth)
+            # Если такой уже есть - обновляем
             if resp.json().get('status') != 'ok':
-                await client.post("http://casdoor:8000/api/update-user", json=casdoor_user, auth=auth)
+                await client.post(api_url_update, json=casdoor_user, auth=auth)
         except Exception as e:
             print(f"Ошибка синхронизации с Casdoor: {e}")
 
@@ -130,7 +138,8 @@ def home(request: Request, db: Session = Depends(get_db)):
             token = db_session.token
 
     if not token:
-        return templates.TemplateResponse("index.html", {"request": request})
+        # Если не вошел - редиректим на страницу входа
+        return RedirectResponse("/login")
     
     # ЛОГИКА ОПРЕДЕЛЕНИЯ ПОЛЬЗОВАТЕЛЯ
     user_id = None
@@ -142,6 +151,7 @@ def home(request: Request, db: Session = Depends(get_db)):
         # ВАРИАНТ А: Это наш токен от VK (начинается с vk_)
         if token.startswith("vk_"):
             user_id = token 
+            # Ищем сразу в базе
             wallet = db.query(UserWallet).filter(UserWallet.casdoor_id == user_id).first()
             if wallet:
                 name = wallet.name
@@ -150,12 +160,14 @@ def home(request: Request, db: Session = Depends(get_db)):
             else:
                 return RedirectResponse("/logout")
 
-        # ВАРИАНТ Б: Это токен от Casdoor (JWT)
+        # ВАРИАНТ Б: Это токен от Casdoor
         else:
             user_info = sdk.parse_jwt_token(token)
             user_id = user_info.get("id")
             
-            raw_name = user_info.get("name")
+            # --- ИСПРАВЛЕНИЕ: Берем красивое имя Google ---
+            raw_name = user_info.get("displayName") or user_info.get("name")
+            
             raw_email = user_info.get("email", "")
             raw_avatar = user_info.get("avatar", "")
             raw_phone = user_info.get("phone", "")
@@ -202,12 +214,24 @@ def home(request: Request, db: Session = Depends(get_db)):
         "balance": wallet.balance
     })
 
-# --- ОБЫЧНЫЙ ВХОД (CASDOOR) ---
+# --- НОВАЯ СТРАНИЦА ВХОДА ---
 @app.get("/login")
-def login(provider: str = None):
+def login_page(request: Request, provider: str = None):
+    # Если передали provider, перекидываем на логику авторизации
+    if provider:
+        return RedirectResponse(f"/auth/login?provider={provider}")
+    
+    # Иначе показываем красивый HTML
+    return templates.TemplateResponse("signin.html", {"request": request})
+
+# --- МАРШРУТИЗАТОР АВТОРИЗАЦИИ ---
+@app.get("/auth/login")
+def auth_redirect(provider: str = None):
+    # ПЕРЕХВАТ VK
     if provider and provider.lower() in ["vk", "vk_new"]:
         return RedirectResponse("/login/vk-direct")
 
+    # СТАНДАРТ CASDOOR
     params = {
         "client_id": sdk.client_id,
         "response_type": "code",
@@ -237,7 +261,8 @@ def callback(code: str, state: str, db: Session = Depends(get_db)):
     response.set_cookie(key="session_id", value=new_session_id, httponly=True, samesite="lax")
     return response
 
-# --- СПЕЦ-ВХОД ДЛЯ VK (Исправлено) ---
+# --- СПЕЦ-ВХОД ДЛЯ VK (Мост) ---
+
 @app.get("/login/vk-direct")
 def login_vk_direct():
     verifier, challenge = generate_pkce()
@@ -255,22 +280,17 @@ def login_vk_direct():
     auth_url = f"https://id.vk.com/authorize?{urllib.parse.urlencode(params)}"
     
     response = RedirectResponse(auth_url)
-    # Сохраняем ТОЛЬКО verifier, device_id нам пришлет ВК
     response.set_cookie("vk_verifier", verifier, httponly=True, samesite="lax")
     return response
 
 @app.get("/callback/vk")
-async def callback_vk(
-    code: str, 
-    state: str,
-    device_id: str, # <--- Берем device_id из URL от ВКонтакте!
-    request: Request, 
-    db: Session = Depends(get_db)
-):
+async def callback_vk(code: str, request: Request, db: Session = Depends(get_db)):
     verifier = request.cookies.get("vk_verifier")
-    
+    # Берем device_id от VK
+    device_id = request.query_params.get("device_id") or str(uuid.uuid4())
+
     if not verifier:
-        return RedirectResponse("/") 
+        return RedirectResponse("/login") 
 
     async with httpx.AsyncClient() as client:
         token_resp = await client.post("https://id.vk.com/oauth2/auth", data={
@@ -280,27 +300,23 @@ async def callback_vk(
             "client_secret": VK_CLIENT_SECRET,
             "code_verifier": verifier,
             "redirect_uri": VK_REDIRECT_URI,
-            "device_id": device_id, # <--- Отправляем правильный ID
-            "state": state
+            "device_id": device_id,
+            "state": "vk_login" 
         })
         token_data = token_resp.json()
-        
-        # Обработка ошибки VK
-        if "error" in token_data:
-             return HTMLResponse(f"Ошибка VK: {token_data}")
-
         access_token = token_data.get("access_token")
         
+        if not access_token:
+             return HTMLResponse(f"Ошибка VK: {token_data}")
+
         user_resp = await client.post("https://id.vk.com/oauth2/user_info", data={
             "access_token": access_token,
             "client_id": VK_CLIENT_ID
         })
         user_info = user_resp.json().get("user", {})
 
-    # Синхронизация с Casdoor
     await sync_user_to_casdoor(user_info)
 
-    # Сохраняем в локальную базу
     vk_id = str(user_info.get("user_id"))
     full_id = f"vk_{vk_id}"
     
@@ -323,7 +339,6 @@ async def callback_vk(
     
     db.commit()
     
-    # Входим
     new_session_id = str(uuid.uuid4())
     db_session = UserSession(session_id=new_session_id, token=full_id)
     db.add(db_session)
@@ -340,7 +355,9 @@ def logout(request: Request, db: Session = Depends(get_db)):
     if session_id:
         db.query(UserSession).filter(UserSession.session_id == session_id).delete()
         db.commit()
-    response = RedirectResponse("/")
+    
+    # ВОЗВРАЩАЕМ НА НОВУЮ СТРАНИЦУ ВХОДА
+    response = RedirectResponse("/login")
     response.delete_cookie("session_id")
     response.delete_cookie("vk_verifier")
     return response

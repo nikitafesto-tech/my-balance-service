@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход в Neirosetim</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .login-card {
+            background-color: #1e1e1e;
+            border-radius: 20px;
+            padding: 40px;
+            width: 100%;
+            max-width: 360px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        h2 { margin-bottom: 10px; font-weight: 600; }
+        p.subtitle { color: #aaaaaa; font-size: 14px; margin-bottom: 30px; }
+        
+        /* Кнопка Яндекс (Акцентная) */
+        .btn-yandex {
+            background-color: #fc3f1d;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 20px;
+            transition: opacity 0.2s;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-yandex:hover { opacity: 0.9; }
+        .btn-yandex svg { margin-right: 10px; height: 20px; width: 20px; fill: white; }
+
+        /* Ряд иконок */
+        .social-row {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .social-icon {
+            background-color: #2c2c2c;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+            text-decoration: none;
+        }
+        .social-icon:hover { background-color: #3d3d3d; }
+        .social-icon svg { width: 24px; height: 24px; }
+
+        .divider {
+            color: #555;
+            font-size: 13px;
+            margin: 20px 0;
+            position: relative;
+        }
+
+        /* Второстепенные кнопки */
+        .btn-secondary {
+            background-color: #2c2c2c;
+            color: #ffffff;
+            display: block;
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-size: 15px;
+            margin-bottom: 12px;
+            transition: background 0.2s;
+            box-sizing: border-box;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-secondary:hover { background-color: #383838; }
+        .btn-secondary span { display: flex; align-items: center; justify-content: center; gap: 10px;}
+
+        .footer-links {
+            margin-top: 30px;
+            font-size: 12px;
+            color: #666;
+            line-height: 1.5;
+        }
+        .footer-links a { color: #888; text-decoration: none; }
+    </style>
+</head>
+<body>
+
+<div class="login-card">
+    <h2>Войти или зарегистрироваться</h2>
+    <p class="subtitle">используя социальную сеть</p>
+
+    <a href="/auth/login?provider=Yandex" class="btn-yandex">
+        <svg viewBox="0 0 24 24"><path d="M14.6 20.5c-1.8-3.9-3.4-7.5-3.4-7.5-.5-.9-.9-1.2-1.8-1.2h-3v8.7H2V2h4.5c4 0 6.6 2.3 6.6 6 0 2.2-1 4.2-2.8 5.2.7.7 2.5 4.5 3.5 6.6l.8 1.8h-4.6z"/></svg>
+        Войти через Яндекс
+    </a>
+
+    <div class="social-row">
+        <a href="/auth/login?provider=Google" class="social-icon" title="Google">
+            <svg viewBox="0 0 24 24"><path fill="#EA4335" d="M12 5.1c1.8 0 3.5.7 4.8 1.8l3.6-3.6C18.2 1.2 15.3 0 12 0 7.4 0 3.4 2.6 1.5 6.4l4.2 3.3C6.7 6.8 9.1 5.1 12 5.1z"/><path fill="#34A853" d="M23.6 9.8c.2.7.3 1.4.3 2.2 0 4.4-3 7.6-7.5 8.9V12h8.7c.1.7.1-.7-.2-2.2z"/><path fill="#4285F4" d="M23.6 9.8C22.6 15.7 18.2 20 12 20c-2.9 0-5.6-1.1-7.7-2.9l-3.8 3C4.6 23.3 8.1 24 12 24c6.6 0 12.2-4.6 13.8-10.8H12v-3.4h11.6z"/><path fill="#FBBC05" d="M5.7 9.7l-4.2-3.3C.6 8.3 0 10.1 0 12c0 1.9.6 3.7 1.5 5.6l4.2-3.3C5.2 13.3 5 12.7 5 12c0-.8.2-1.4.5-2.3z"/></svg>
+        </a>
+
+        <a href="#" onclick="alert('Скоро подключим!')" class="social-icon" title="Telegram">
+            <svg viewBox="0 0 24 24" fill="#0088cc"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+        </a>
+
+        <a href="/login/vk-direct" class="social-icon" title="ВКонтакте">
+            <svg viewBox="0 0 24 24" fill="#0077FF"><path d="M13.162 18.994c.609 0 .858-.406.851-1.184 0-1.653.75-2.83 2.546-2.83.673 0 .96.386 1.148 1.213.153.671.346 2.801 2.503 2.801h1.498c.703 0 1.055-.386.852-1.187-.393-1.551-1.888-3.064-2.228-3.32-.516-.395-.494-.658 0-1.316 0 0 2.228-3.52 2.459-4.706.113-.578-.171-.854-.93-.854h-2.583c-.703 0-.918.395-1.089.854-.42 1.119-1.428 3.093-1.848 3.343-.271.164-.407.082-.407-.526V8.409c0-1.106.13-1.606-.388-1.855-.33-.158-.703-.236-1.257-.236-2.264 0-2.887 1.092-2.732 2.895.068.789.261 2.304 0 2.632-.266.335-1.018-1.25-2.28-3.948-.231-.493-.377-.854-1.233-.854H5.32c-.886 0-.992.395-.873.854 1.149 4.422 4.088 8.87 8.714 8.87v-1.112z"/></svg>
+        </a>
+    </div>
+
+    <div class="divider">— или —</div>
+
+    <a href="#" onclick="alert('Скоро!')" class="btn-secondary">
+        <span>📧 Через эл.почту</span>
+    </a>
+    <a href="#" onclick="alert('Скоро!')" class="btn-secondary">
+        <span>🔑 У меня есть логин/пароль</span>
+    </a>
+
+    <div class="footer-links">
+        Нажимая кнопку, вы принимаете <a href="#">Пользовательское соглашение</a>
+    </div>
+</div>
+
+</body>
+</html>
