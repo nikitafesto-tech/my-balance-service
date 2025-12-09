@@ -27,7 +27,6 @@
         h2 { margin-bottom: 10px; font-weight: 600; }
         p.subtitle { color: #aaaaaa; font-size: 14px; margin-bottom: 30px; }
         
-        /* Кнопка Яндекс (Акцентная) */
         .btn-yandex {
             background-color: #fc3f1d;
             color: white;
@@ -48,7 +47,6 @@
         .btn-yandex:hover { opacity: 0.9; }
         .btn-yandex svg { margin-right: 10px; height: 20px; width: 20px; fill: white; }
 
-        /* Ряд иконок */
         .social-row {
             display: flex;
             justify-content: center;
@@ -69,14 +67,8 @@
         .social-icon:hover { background-color: #3d3d3d; }
         .social-icon svg { width: 24px; height: 24px; }
 
-        .divider {
-            color: #555;
-            font-size: 13px;
-            margin: 20px 0;
-            position: relative;
-        }
+        .divider { color: #555; font-size: 13px; margin: 20px 0; position: relative; }
 
-        /* Второстепенные кнопки */
         .btn-secondary {
             background-color: #2c2c2c;
             color: #ffffff;
@@ -93,14 +85,8 @@
             cursor: pointer;
         }
         .btn-secondary:hover { background-color: #383838; }
-        .btn-secondary span { display: flex; align-items: center; justify-content: center; gap: 10px;}
-
-        .footer-links {
-            margin-top: 30px;
-            font-size: 12px;
-            color: #666;
-            line-height: 1.5;
-        }
+        
+        .footer-links { margin-top: 30px; font-size: 12px; color: #666; line-height: 1.5; }
         .footer-links a { color: #888; text-decoration: none; }
     </style>
 </head>
@@ -110,13 +96,13 @@
     <h2>Войти или зарегистрироваться</h2>
     <p class="subtitle">используя социальную сеть</p>
 
-    <a href="/auth/login?provider=yandex" class="btn-yandex">
+    <a href="/login/yandex-direct" class="btn-yandex">
         <svg viewBox="0 0 24 24"><path d="M14.6 20.5c-1.8-3.9-3.4-7.5-3.4-7.5-.5-.9-.9-1.2-1.8-1.2h-3v8.7H2V2h4.5c4 0 6.6 2.3 6.6 6 0 2.2-1 4.2-2.8 5.2.7.7 2.5 4.5 3.5 6.6l.8 1.8h-4.6z"/></svg>
         Войти через Яндекс
     </a>
 
     <div class="social-row">
-        <a href="/auth/login?provider=google" class="social-icon" title="Google">
+        <a href="/login/google-direct" class="social-icon" title="Google">
             <svg viewBox="0 0 24 24"><path fill="#EA4335" d="M12 5.1c1.8 0 3.5.7 4.8 1.8l3.6-3.6C18.2 1.2 15.3 0 12 0 7.4 0 3.4 2.6 1.5 6.4l4.2 3.3C6.7 6.8 9.1 5.1 12 5.1z"/><path fill="#34A853" d="M23.6 9.8c.2.7.3 1.4.3 2.2 0 4.4-3 7.6-7.5 8.9V12h8.7c.1.7.1-.7-.2-2.2z"/><path fill="#4285F4" d="M23.6 9.8C22.6 15.7 18.2 20 12 20c-2.9 0-5.6-1.1-7.7-2.9l-3.8 3C4.6 23.3 8.1 24 12 24c6.6 0 12.2-4.6 13.8-10.8H12v-3.4h11.6z"/><path fill="#FBBC05" d="M5.7 9.7l-4.2-3.3C.6 8.3 0 10.1 0 12c0 1.9.6 3.7 1.5 5.6l4.2-3.3C5.2 13.3 5 12.7 5 12c0-.8.2-1.4.5-2.3z"/></svg>
         </a>
 
@@ -131,12 +117,8 @@
 
     <div class="divider">— или —</div>
 
-    <a href="#" onclick="alert('Скоро!')" class="btn-secondary">
-        <span>📧 Через эл.почту</span>
-    </a>
-    <a href="#" onclick="alert('Скоро!')" class="btn-secondary">
-        <span>🔑 У меня есть логин/пароль</span>
-    </a>
+    <a href="#" onclick="alert('Скоро!')" class="btn-secondary">📧 Через эл.почту</a>
+    <a href="/login/password" onclick="alert('Это мы тоже прикрутим позже, если надо')" class="btn-secondary">🔑 У меня есть логин/пароль</a>
 
     <div class="footer-links">
         Нажимая кнопку, вы принимаете <a href="#">Пользовательское соглашение</a>
