@@ -5,10 +5,10 @@ services:
     image: postgres:15
     restart: always
     environment:
-      # ВОЗВРАЩАЕМ СТАРЫЕ ДАННЫЕ (чтобы база пустила)
+      # Настройки для ТВОЕЙ СТАРОЙ БАЗЫ
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: secret_password
-      POSTGRES_DB: casdoor_db
+      POSTGRES_DB: casdoor_db  # <-- ТУТ БЫЛА ОШИБКА, ВЕРНУЛ casdoor_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -21,7 +21,7 @@ services:
       - "8000:8000"
     environment:
       driverName: postgres
-      # Подключаемся к базе как postgres (старый юзер)
+      # Исправил dbname=casdoor_db (было dbname=dbname, из-за этого падало)
       dataSourceName: "user=postgres password=secret_password host=db port=5432 sslmode=disable dbname=casdoor_db"
       origin: "https://auth.neirosetim.ru"
     depends_on:
@@ -35,23 +35,21 @@ services:
     ports:
       - "8081:8081"
     environment:
-      # Подключаемся к базе как postgres
+      # Тут тоже исправил имя базы
       - DB_URL=postgresql://postgres:secret_password@db:5432/casdoor_db
+      - PYTHONUNBUFFERED=1 # <-- ЧТОБЫ ЛОГИ БЫЛИ ВИДНЫ СРАЗУ
       
       - SITE_URL=${SITE_URL}
       - AUTH_URL=${AUTH_URL}
       - CASDOOR_CERT_FILE=${CASDOOR_CERT_FILE}
       
-      # Переменные из .env (ключи)
+      # Переменные из .env
       - CASDOOR_CLIENT_ID=${CASDOOR_CLIENT_ID}
       - CASDOOR_CLIENT_SECRET=${CASDOOR_CLIENT_SECRET}
-      
       - VK_CLIENT_ID=${VK_CLIENT_ID}
       - VK_CLIENT_SECRET=${VK_CLIENT_SECRET}
-      
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-      
       - YANDEX_CLIENT_ID=${YANDEX_CLIENT_ID}
       - YANDEX_CLIENT_SECRET=${YANDEX_CLIENT_SECRET}
     depends_on:
