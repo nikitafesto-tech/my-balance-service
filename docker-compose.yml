@@ -23,11 +23,13 @@ services:
       driverName: postgres
       dataSourceName: "user=postgres password=secret_password host=db port=5432 sslmode=disable dbname=casdoor_db"
       
-      # === ГЛАВНАЯ СТРОКА ДЛЯ ИСПРАВЛЕНИЯ ===
-      # Это заполнит "undefined" правильным адресом
-      staticBaseUrl: ${AUTH_URL}
       origin: ${AUTH_URL}
-      # ======================================
+      staticBaseUrl: ${AUTH_URL} 
+      
+      # === ДОБАВЛЯЕМ ЭТИ ДВЕ СТРОКИ ДЛЯ ДЕБАГА ===
+      runmode: "dev"
+      logPostOnly: "false" 
+      # ===========================================
       
     depends_on:
       - db
