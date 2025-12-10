@@ -279,7 +279,7 @@ async def callback_vk(code: str, request: Request, db: Session = Depends(get_db)
     response = RedirectResponse("/")
     return update_session_cookie(response, clean_data, "vk", db)
 
-# Аналогично для Google и Яндекс (логика та же, ошибки будут ловиться глобальным перехватчиком)
+# Аналогично и для Google и Яндекс (логика та же, ошибки будут ловиться глобальным перехватчиком)
 @app.get("/login/google-direct")
 def login_google_direct():
     params = {"client_id": GOOGLE_CLIENT_ID, "redirect_uri": GOOGLE_REDIRECT_URI, "response_type": "code", "scope": "openid email profile", "access_type": "online", "prompt": "select_account"}
