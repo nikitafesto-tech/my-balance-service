@@ -25,7 +25,7 @@ jobs:
           source: "."
           target: "/opt/my-balance-service"
 
-      # 3. Подключаемся по SSH и запускаем Docker
+      # 3. Подключаемся по SSH и запусcкаем Docker
       - name: Remote Docker Commands
         uses: appleboy/ssh-action@master
         with:
