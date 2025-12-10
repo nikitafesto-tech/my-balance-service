@@ -21,9 +21,14 @@ services:
       - "8000:8000"
     environment:
       driverName: postgres
-      # Исправил dbname=casdoor_db (было dbname=dbname, из-за этого падало)
       dataSourceName: "user=postgres password=secret_password host=db port=5432 sslmode=disable dbname=casdoor_db"
-      origin: "https://auth.neirosetim.ru"
+      
+      # === ГЛАВНАЯ СТРОКА ДЛЯ ИСПРАВЛЕНИЯ ===
+      # Это заполнит "undefined" правильным адресом
+      staticBaseUrl: ${AUTH_URL}
+      origin: ${AUTH_URL}
+      # ======================================
+      
     depends_on:
       - db
     networks:
