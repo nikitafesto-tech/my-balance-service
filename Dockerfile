@@ -11,5 +11,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 2. Копируем ВЕСЬ проект (папку app, cert.pem и прочее) в контейнер
 COPY . .
 
-# 3. Запускаем. Так как мы в корне, путь к приложению теперь app.main:app
+# 3. Запускаем. Так кfак мы в корне, путь к приложению теперь app.main:app
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8081"]
