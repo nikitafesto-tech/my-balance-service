@@ -5,7 +5,7 @@ lk.neirosetim.ru {
 
 auth.neirosetim.ru {
     reverse_proxy casdoor:8000 {
-        header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-Proto https
         header_up X-Real-IP {remote}
     }
 }
