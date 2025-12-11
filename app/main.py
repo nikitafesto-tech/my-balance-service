@@ -13,9 +13,9 @@ import secrets
 import hashlib
 import base64
 import httpx
+from datetime import datetime
 
-# --- НАСТРОЙКА ЛОГИРОВАНИЯ (САМОЕ ВАЖНОЕ) ---
-# Пишем все логи уровня INFO и выше в стандартный вывод (консоль)
+# --- НАСТРОЙКА ЛОГИРОВАНИЯ ---
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -30,7 +30,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
 
-# Проверяем, существуют ли папки, и пишем в лог
 if os.path.exists(STATIC_DIR):
     logger.info(f"Папка static найдена: {STATIC_DIR}")
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -40,7 +39,6 @@ else:
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 # --- ПЕРЕХВАТ ОШИБОК 500 ---
-# Если случится любая ошибка в коде, мы увидим её полный текст в логах
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Глобальная ошибка при обработке {request.url}: {exc}", exc_info=True)
@@ -53,15 +51,11 @@ async def global_exception_handler(request: Request, exc: Exception):
 SITE_URL = os.getenv("SITE_URL", "http://localhost:8081")
 AUTH_URL = os.getenv("AUTH_URL", "http://localhost:8000")
 
-# Логируем настройки при старте (чтобы проверить, видит ли он .env)
 logger.info(f"Запуск с настройками: SITE_URL={SITE_URL}, AUTH_URL={AUTH_URL}")
 
 VK_CLIENT_ID = os.getenv("VK_CLIENT_ID")
 VK_CLIENT_SECRET = os.getenv("VK_CLIENT_SECRET")
 VK_REDIRECT_URI = f"{SITE_URL}/callback/vk"
-
-if not VK_CLIENT_ID:
-    logger.warning("VK_CLIENT_ID не найден! Авторизация ВК работать не будет.")
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
@@ -76,7 +70,7 @@ CASDOOR_CLIENT_SECRET = os.getenv("CASDOOR_CLIENT_SECRET")
 
 # --- БАЗА ДАННЫХ ---
 DB_URL = os.getenv("DB_URL", "sqlite:///./test.db")
-logger.info(f"Подключение к БД: {DB_URL}") # Внимание: пароль будет в логах, для дебага ок
+logger.info(f"Подключение к БД: {DB_URL}")
 
 try:
     engine = create_engine(DB_URL)
@@ -118,12 +112,15 @@ def generate_pkce():
     challenge = base64.urlsafe_b64encode(m.digest()).decode('ascii').rstrip('=')
     return verifier, challenge
 
+# === ОБНОВЛЕННАЯ ФУНКЦИЯ СИНХРОНИЗАЦИИ ===
 async def sync_user_to_casdoor(user_data, provider_prefix):
     logger.info(f"Начинаем синхронизацию юзера {user_data.get('id')} ({provider_prefix})")
+    
     user_id = str(user_data.get("id"))
-    full_name = user_data.get("name", "")
+    full_name = user_data.get("name") or f"User {user_id}"
     casdoor_username = f"{provider_prefix}_{user_id}"
     
+    # Формируем правильный payload для Casdoor
     casdoor_user = {
         "owner": "users",
         "name": casdoor_username,
@@ -132,8 +129,12 @@ async def sync_user_to_casdoor(user_data, provider_prefix):
         "email": user_data.get("email", ""),
         "phone": user_data.get("phone", ""),
         "id": user_id,
-        "type": "normal",
-        "properties": {}
+        "type": "normal-user",
+        "properties": {
+            "oauth_Source": provider_prefix
+        },
+        # !!! ВАЖНО: Привязка к приложению Myservice !!!
+        "signupApplication": "Myservice"
     }
 
     api_url_add = "http://casdoor:8000/api/add-user"
@@ -143,18 +144,23 @@ async def sync_user_to_casdoor(user_data, provider_prefix):
         try:
             auth = (CASDOOR_CLIENT_ID, CASDOOR_CLIENT_SECRET)
             logger.info(f"Отправляем запрос в Casdoor: {api_url_add}")
+            
+            # 1. Пытаемся создать
             resp = await client.post(api_url_add, json=casdoor_user, auth=auth)
             logger.info(f"Ответ Casdoor (add): {resp.status_code} - {resp.text}")
             
-            if resp.json().get('status') != 'ok':
-                logger.info("Юзер уже есть, пробуем обновить...")
+            # 2. Если уже есть или ошибка, пытаемся обновить
+            if resp.status_code != 200 or resp.json().get('status') != 'ok':
+                logger.info("Юзер уже есть или ошибка создания, пробуем обновить...")
                 resp = await client.post(api_url_update, json=casdoor_user, auth=auth)
                 logger.info(f"Ответ Casdoor (update): {resp.status_code}")
+                
         except Exception as e:
             logger.error(f"Ошибка синхронизации с Casdoor: {e}", exc_info=True)
     
     return casdoor_username
 
+# VK использует эту обертку, оставляем для совместимости
 async def finalize_login(data, prefix, db):
     await sync_user_to_casdoor(data, prefix)
 
@@ -221,6 +227,7 @@ def home(request: Request, db: Session = Depends(get_db)):
 def login_page(request: Request):
     return templates.TemplateResponse("signin.html", {"request": request})
 
+# --- VK ---
 @app.get("/login/vk-direct")
 def login_vk_direct():
     verifier, challenge = generate_pkce()
@@ -275,11 +282,13 @@ async def callback_vk(code: str, request: Request, db: Session = Depends(get_db)
     
     logger.info(f"Данные пользователя VK получены: {clean_data['name']}")
     
+    # Синхронизация для VK (уже была, работает)
     await finalize_login(clean_data, "vk", db)
+    
     response = RedirectResponse("/")
     return update_session_cookie(response, clean_data, "vk", db)
 
-# Аналогично и и для Google и Яндекс (логика та же, ошибки будут ловиться глобальным перехватчиком)
+# --- GOOGLE (ИСПРАВЛЕНО) ---
 @app.get("/login/google-direct")
 def login_google_direct():
     params = {"client_id": GOOGLE_CLIENT_ID, "redirect_uri": GOOGLE_REDIRECT_URI, "response_type": "code", "scope": "openid email profile", "access_type": "online", "prompt": "select_account"}
@@ -297,9 +306,28 @@ async def callback_google_direct(code: str, db: Session = Depends(get_db)):
         user_resp = await client.get("https://www.googleapis.com/oauth2/v3/userinfo", params={"access_token": access_token})
         g_user = user_resp.json()
 
-    clean_data = {"id": g_user.get("sub"), "name": g_user.get("name"), "avatar": g_user.get("picture"), "email": g_user.get("email"), "phone": ""}
+    # Генерация данных для Casdoor (чтобы не было ошибок валидации)
+    unique_login = f"google_{g_user.get('sub')}"
+    clean_data = {
+        "id": g_user.get("sub"),
+        # Если нет имени, используем часть email или логин
+        "name": g_user.get("name") or g_user.get("email", "").split("@")[0] or unique_login,
+        "avatar": g_user.get("picture"),
+        # Если нет email, создаем технический
+        "email": g_user.get("email") or f"{unique_login}@noemail.com",
+        "phone": ""
+    }
+
+    # === СИНХРОНИЗАЦИЯ С CASDOOR ===
+    try:
+        await sync_user_to_casdoor(clean_data, "google")
+    except Exception as e:
+        logger.error(f"Ошибка синхронизации Google (клиент все равно войдет): {e}")
+    # ===============================
+
     return update_session_cookie(RedirectResponse("/"), clean_data, "google", db)
 
+# --- YANDEX (ИСПРАВЛЕНО) ---
 @app.get("/login/yandex-direct")
 def login_yandex_direct():
     params = {"client_id": YANDEX_CLIENT_ID, "redirect_uri": YANDEX_REDIRECT_URI, "response_type": "code"}
@@ -319,7 +347,24 @@ async def callback_yandex_direct(code: str, db: Session = Depends(get_db)):
 
     avatar_id = y_user.get("default_avatar_id")
     avatar_url = f"https://avatars.yandex.net/get-yapic/{avatar_id}/islands-200" if avatar_id else ""
-    clean_data = {"id": y_user.get("id"), "name": y_user.get("display_name") or y_user.get("real_name"), "avatar": avatar_url, "email": y_user.get("default_email"), "phone": y_user.get("default_phone", {}).get("number", "")}
+    
+    # Генерация уникальных данных для Yandex
+    unique_login = f"yandex_{y_user.get('id')}"
+    clean_data = {
+        "id": y_user.get("id"),
+        "name": y_user.get("display_name") or y_user.get("real_name") or unique_login,
+        "avatar": avatar_url,
+        "email": y_user.get("default_email") or f"{unique_login}@noemail.com",
+        "phone": y_user.get("default_phone", {}).get("number", "")
+    }
+
+    # === СИНХРОНИЗАЦИЯ С CASDOOR ===
+    try:
+        await sync_user_to_casdoor(clean_data, "yandex")
+    except Exception as e:
+        logger.error(f"Ошибка синхронизации Yandex (клиент все равно войдет): {e}")
+    # ===============================
+
     return update_session_cookie(RedirectResponse("/"), clean_data, "yandex", db)
 
 @app.get("/logout")
