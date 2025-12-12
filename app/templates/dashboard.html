@@ -9,42 +9,87 @@
     <script src="https://yookassa.ru/checkout-widget/v1/checkout-widget.js"></script>
     
     <style>
-        .payment-form {
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid #eee;
+        /* Стили для формы ввода суммы */
+        .payment-input-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 15px;
         }
         .payment-input {
-            padding: 10px;
+            padding: 12px;
             border: 1px solid #ddd;
-            border-radius: 5px;
-            width: 100px;
-            font-size: 16px;
+            border-radius: 8px;
+            width: 120px;
+            font-size: 18px;
+            outline: none;
         }
+        .payment-input:focus { border-color: #27ae60; }
+        
         .payment-btn {
-            padding: 10px 20px;
+            padding: 12px 24px;
             background-color: #27ae60;
             color: white;
             border: none;
-            border-radius: 5px;
+            border-radius: 8px;
             cursor: pointer;
             font-size: 16px;
+            font-weight: 500;
+            transition: background 0.2s;
         }
-        .payment-btn:hover { background-color: #2ecc71; }
-        .payment-btn:disabled { background-color: #95a5a6; cursor: not-allowed; }
-        
-        .loader {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            animation: spin 2s linear infinite;
-            display: none;
-            vertical-align: middle;
-            margin-left: 10px;
+        .payment-btn:hover { background-color: #219150; }
+        .payment-btn:disabled { background-color: #bdc3c7; cursor: not-allowed; }
+
+        /* === СТИЛИ МОДАЛЬНОГО ОКНА (POP-UP) === */
+        .modal-overlay {
+            display: none; /* Скрыто по умолчанию */
+            position: fixed; 
+            z-index: 1000; 
+            left: 0;
+            top: 0;
+            width: 100%; 
+            height: 100%; 
+            background-color: rgba(0,0,0,0.5); /* Затемнение фона */
+            backdrop-filter: blur(2px);
+            align-items: center;
+            justify-content: center;
         }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .modal-content {
+            background-color: #fff;
+            padding: 0; /* Виджет сам имеет отступы */
+            border-radius: 12px;
+            width: 100%;
+            max-width: 500px; /* Ширина окна */
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            position: relative;
+            overflow: hidden;
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* Кнопка закрытия крестик */
+        .close-btn {
+            position: absolute;
+            right: 15px;
+            top: 10px;
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 1010;
+        }
+        .close-btn:hover { color: #000; }
+
+        /* Контейнер именно для виджета внутри модалки */
+        #yookassa-widget {
+            width: 100%;
+            min-height: 400px; /* Чтобы не скакало при загрузке */
+        }
     </style>
 </head>
 <body>
@@ -68,16 +113,20 @@
         <div class="balance-title">Ваш баланс</div>
         <div class="balance-amount">{{ balance }} ₽</div>
         
-        <div class="payment-form">
-            <h3>Пополнить баланс</h3>
-            <div style="display: flex; align-items: center;">
+        <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px;">
+            <h3 style="margin: 0 0 10px 0;">Пополнить счет</h3>
+            <p style="font-size: 13px; color: #666; margin-bottom: 15px;">
+                Оплата через СБП, банковской картой или SberPay.
+            </p>
+            
+            <div class="payment-input-group">
                 <input type="number" id="amount-input" class="payment-input" placeholder="100" min="10" value="100">
-                <span style="font-size: 18px; margin: 0 10px;">₽</span>
-                <button onclick="pay()" class="payment-btn" id="pay-btn">Оплатить</button>
-                <div class="loader" id="loader"></div>
+                <span style="font-size: 18px;">₽</span>
+                <button onclick="openPaymentModal()" class="payment-btn" id="pay-btn">
+                    Пополнить
+                </button>
             </div>
-            <p style="font-size: 12px; color: #777; margin-top: 10px;">Безопасная оплата через виджет ЮKassa (СБП, Карты)</p>
-            <div id="error-msg" style="color: red; margin-top: 10px; font-size: 14px;"></div>
+            <div id="error-msg" style="color: #e74c3c; margin-top: 10px; font-size: 14px;"></div>
         </div>
 
         <div style="margin-top: 30px;">
@@ -85,14 +134,22 @@
         </div>
     </div>
 
-    <div id="yookassa-widget"></div>
+    <div id="payment-modal" class="modal-overlay">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+            <div id="yookassa-widget"></div>
+        </div>
+    </div>
 
     <script>
-        async function pay() {
+        let checkout = null; // Переменная для хранения экземпляра виджета
+
+        // 1. Функция открытия модального окна и инициализации платежа
+        async function openPaymentModal() {
             const amount = document.getElementById('amount-input').value;
             const btn = document.getElementById('pay-btn');
-            const loader = document.getElementById('loader');
             const errorMsg = document.getElementById('error-msg');
+            const modal = document.getElementById('payment-modal');
 
             if (amount < 10) {
                 alert("Минимальная сумма 10 руб.");
@@ -100,11 +157,11 @@
             }
 
             btn.disabled = true;
-            loader.style.display = 'inline-block';
+            btn.innerText = "Загрузка...";
             errorMsg.innerText = '';
 
             try {
-                // 1. Запрос токена
+                // А. Запрашиваем токен у бэкенда
                 const response = await fetch('/payment/create', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -117,39 +174,80 @@
                     throw new Error(data.error);
                 }
 
-                // 2. Инициализация виджета
-                const checkout = new window.YooMoneyCheckoutWidget({
+                // Б. Показываем модальное окно
+                modal.style.display = 'flex'; // flex для центрирования
+                
+                // В. Если виджет уже был создан ранее, удаляем его перед созданием нового
+                if (checkout) {
+                    checkout.destroy();
+                }
+
+                // Г. Инициализируем Виджет с КАСТОМИЗАЦИЕЙ
+                checkout = new window.YooMoneyCheckoutWidget({
                     confirmation_token: data.confirmation_token,
-                    return_url: window.location.href, 
+                    return_url: window.location.href,
+                    
+                    // --- НАСТРОЙКИ ДИЗАЙНА (ВАЖНО) ---
+                    customization: {
+                        // Настраиваем цвета под ваш сайт
+                        colors: {
+                            control_primary: '#27ae60', // Зеленая кнопка "Заплатить"
+                            control_primary_content: '#FFFFFF', // Белый текст
+                            background: '#FFFFFF'
+                        },
+                        // Тип модалки внутри виджета (опционально)
+                        modal: true 
+                    },
+                    // ----------------------------------
+
                     error_callback: function(error) {
                         console.log(error);
-                        errorMsg.innerText = "Ошибка виджета: " + error.error;
-                        btn.disabled = false;
-                        loader.style.display = 'none';
+                        errorMsg.innerText = "Ошибка: " + error.error;
+                        closeModal();
                     }
                 });
 
-                // 3. Обработчики событий
+                // Д. Отрисовываем внутри нашего div
+                checkout.render('yookassa-widget');
+
+                // Е. Обработчики
                 checkout.on('success', () => {
                     checkout.destroy();
-                    alert("Оплата прошла успешно! Баланс скоро обновится.");
-                    window.location.reload(); 
+                    modal.style.display = 'none';
+                    alert("Успешно! Баланс обновляется...");
+                    window.location.reload();
                 });
 
                 checkout.on('fail', () => {
                     checkout.destroy();
-                    btn.disabled = false;
-                    loader.style.display = 'none';
+                    modal.style.display = 'none';
+                    alert("Платеж отменен.");
                 });
-
-                // === ИСПРАВЛЕНИЕ: Рендерим в специальный DIV, а не в body ===
-                checkout.render('yookassa-widget'); 
 
             } catch (e) {
                 console.error(e);
                 errorMsg.innerText = "Ошибка: " + e.message;
+            } finally {
                 btn.disabled = false;
-                loader.style.display = 'none';
+                btn.innerText = "Пополнить";
+            }
+        }
+
+        // 2. Функция закрытия окна (при клике на крестик или фон)
+        function closeModal() {
+            const modal = document.getElementById('payment-modal');
+            modal.style.display = 'none';
+            if (checkout) {
+                checkout.destroy();
+                checkout = null;
+            }
+        }
+
+        // Закрытие при клике вне окна
+        window.onclick = function(event) {
+            const modal = document.getElementById('payment-modal');
+            if (event.target == modal) {
+                closeModal();
             }
         }
     </script>
