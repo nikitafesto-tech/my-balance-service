@@ -6,3 +6,4 @@ requests
 sqlalchemy
 jinja2
 httpx
+yookassa

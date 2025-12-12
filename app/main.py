@@ -1,10 +1,10 @@
 import logging
 import sys
-from fastapi import FastAPI, Request, Depends, HTTPException
+from fastapi import FastAPI, Request, Depends, HTTPException, Form, Body
 from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import create_engine, Column, Integer, String, Float, Text
+from sqlalchemy import create_engine, Column, Integer, String, Float, Text, DateTime
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 import os
 import urllib.parse
@@ -14,6 +14,10 @@ import hashlib
 import base64
 import httpx
 from datetime import datetime
+import json
+
+# === ЮKassa ===
+from yookassa import Configuration, Payment as YooPayment
 
 # --- НАСТРОЙКА ЛОГИРОВАНИЯ ---
 logging.basicConfig(
@@ -68,6 +72,17 @@ YANDEX_REDIRECT_URI = f"{SITE_URL}/callback/yandex-direct"
 CASDOOR_CLIENT_ID = os.getenv("CASDOOR_CLIENT_ID")
 CASDOOR_CLIENT_SECRET = os.getenv("CASDOOR_CLIENT_SECRET")
 
+# === НАСТРОЙКИ ЮKASSA ===
+YOOKASSA_SHOP_ID = os.getenv("YOOKASSA_SHOP_ID")
+YOOKASSA_SECRET_KEY = os.getenv("YOOKASSA_SECRET_KEY")
+
+if YOOKASSA_SHOP_ID and YOOKASSA_SECRET_KEY:
+    Configuration.account_id = YOOKASSA_SHOP_ID
+    Configuration.secret_key = YOOKASSA_SECRET_KEY
+    logger.info("ЮKassa успешно настроена")
+else:
+    logger.warning("Нет ключей ЮKassa! Платежи работать не будут.")
+
 # --- БАЗА ДАННЫХ ---
 DB_URL = os.getenv("DB_URL", "sqlite:///./test.db")
 logger.info(f"Подключение к БД: {DB_URL}")
@@ -92,6 +107,17 @@ try:
         session_id = Column(String, primary_key=True)
         token = Column(Text)
 
+    # === ТАБЛИЦА ПЛАТЕЖЕЙ ===
+    class Payment(Base):
+        __tablename__ = "payments"
+        id = Column(Integer, primary_key=True, index=True)
+        yookassa_payment_id = Column(String, unique=True, index=True)
+        user_id = Column(String, index=True)
+        amount = Column(Float)
+        status = Column(String, default="pending")
+        description = Column(String, nullable=True)
+        created_at = Column(DateTime, default=datetime.utcnow)
+
     Base.metadata.create_all(bind=engine)
     logger.info("Таблицы в БД успешно созданы/проверены")
 except Exception as e:
@@ -112,7 +138,6 @@ def generate_pkce():
     challenge = base64.urlsafe_b64encode(m.digest()).decode('ascii').rstrip('=')
     return verifier, challenge
 
-# === ОБНОВЛЕННАЯ ФУНКЦИЯ СИНХРОНИЗАЦИИ ===
 async def sync_user_to_casdoor(user_data, provider_prefix):
     logger.info(f"Начинаем синхронизацию юзера {user_data.get('id')} ({provider_prefix})")
     
@@ -120,7 +145,6 @@ async def sync_user_to_casdoor(user_data, provider_prefix):
     full_name = user_data.get("name") or f"User {user_id}"
     casdoor_username = f"{provider_prefix}_{user_id}"
     
-    # Формируем правильный payload для Casdoor
     casdoor_user = {
         "owner": "users",
         "name": casdoor_username,
@@ -133,7 +157,6 @@ async def sync_user_to_casdoor(user_data, provider_prefix):
         "properties": {
             "oauth_Source": provider_prefix
         },
-        # !!! ВАЖНО: Привязка к приложению Myservice !!!
         "signupApplication": "Myservice"
     }
 
@@ -145,11 +168,9 @@ async def sync_user_to_casdoor(user_data, provider_prefix):
             auth = (CASDOOR_CLIENT_ID, CASDOOR_CLIENT_SECRET)
             logger.info(f"Отправляем запрос в Casdoor: {api_url_add}")
             
-            # 1. Пытаемся создать
             resp = await client.post(api_url_add, json=casdoor_user, auth=auth)
             logger.info(f"Ответ Casdoor (add): {resp.status_code} - {resp.text}")
             
-            # 2. Если уже есть или ошибка, пытаемся обновить
             if resp.status_code != 200 or resp.json().get('status') != 'ok':
                 logger.info("Юзер уже есть или ошибка создания, пробуем обновить...")
                 resp = await client.post(api_url_update, json=casdoor_user, auth=auth)
@@ -160,7 +181,6 @@ async def sync_user_to_casdoor(user_data, provider_prefix):
     
     return casdoor_username
 
-# VK использует эту обертку, оставляем для совместимости
 async def finalize_login(data, prefix, db):
     await sync_user_to_casdoor(data, prefix)
 
@@ -227,6 +247,98 @@ def home(request: Request, db: Session = Depends(get_db)):
 def login_page(request: Request):
     return templates.TemplateResponse("signin.html", {"request": request})
 
+# --- ПЛАТЕЖИ (ВИДЖЕТ) ---
+
+@app.post("/payment/create")
+async def create_payment(request: Request, data: dict = Body(...), db: Session = Depends(get_db)):
+    amount = data.get("amount")
+    
+    session_id = request.cookies.get("session_id")
+    if not session_id:
+        raise HTTPException(status_code=401, detail="Not authorized")
+    
+    db_session = db.query(UserSession).filter(UserSession.session_id == session_id).first()
+    if not db_session:
+        raise HTTPException(status_code=401, detail="Not authorized")
+    
+    user_id = db_session.token 
+
+    try:
+        # Тип подтверждения: embedded (Виджет)
+        payment = YooPayment.create({
+            "amount": {
+                "value": str(amount),
+                "currency": "RUB"
+            },
+            "confirmation": {
+                "type": "embedded"
+            },
+            "capture": True,
+            "description": f"Пополнение баланса для {user_id}",
+            "metadata": {
+                "user_id": user_id
+            }
+        })
+        
+        new_payment = Payment(
+            yookassa_payment_id=payment.id,
+            user_id=user_id,
+            amount=float(amount),
+            status="pending",
+            description=f"Пополнение на {amount} руб."
+        )
+        db.add(new_payment)
+        db.commit()
+        
+        logger.info(f"Создан токен для виджета: {payment.confirmation.confirmation_token}")
+        
+        return JSONResponse({
+            "confirmation_token": payment.confirmation.confirmation_token
+        })
+        
+    except Exception as e:
+        logger.error(f"Ошибка создания платежа: {e}", exc_info=True)
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.post("/api/payment/webhook")
+async def payment_webhook(request: Request, db: Session = Depends(get_db)):
+    try:
+        event_json = await request.json()
+        logger.info(f"Получен вебхук от ЮKassa: {event_json['event']}")
+        
+        if event_json['event'] == 'payment.succeeded':
+            payment_data = event_json['object']
+            yookassa_id = payment_data['id']
+            amount = float(payment_data['amount']['value'])
+            
+            user_id = payment_data['metadata'].get('user_id')
+            
+            logger.info(f"Платеж {yookassa_id} успешен! Начисляем {amount} для {user_id}")
+            
+            db_payment = db.query(Payment).filter(Payment.yookassa_payment_id == yookassa_id).first()
+            
+            if db_payment and db_payment.status == "succeeded":
+                return JSONResponse({"status": "ok"})
+            
+            if db_payment:
+                db_payment.status = "succeeded"
+            else:
+                db_payment = Payment(yookassa_payment_id=yookassa_id, user_id=user_id, amount=amount, status="succeeded")
+                db.add(db_payment)
+            
+            if user_id:
+                wallet = db.query(UserWallet).filter(UserWallet.casdoor_id == user_id).first()
+                if wallet:
+                    wallet.balance += amount
+            
+            db.commit()
+            
+        return JSONResponse({"status": "ok"})
+        
+    except Exception as e:
+        logger.error(f"Ошибка обработки вебхука: {e}", exc_info=True)
+        return JSONResponse({"status": "error"}, status_code=500)
+
 # --- VK ---
 @app.get("/login/vk-direct")
 def login_vk_direct():
@@ -282,13 +394,12 @@ async def callback_vk(code: str, request: Request, db: Session = Depends(get_db)
     
     logger.info(f"Данные пользователя VK получены: {clean_data['name']}")
     
-    # Синхронизация для VK (уже была, работает)
     await finalize_login(clean_data, "vk", db)
     
     response = RedirectResponse("/")
     return update_session_cookie(response, clean_data, "vk", db)
 
-# --- GOOGLE (ИСПРАВЛЕНО) ---
+# --- GOOGLE ---
 @app.get("/login/google-direct")
 def login_google_direct():
     params = {"client_id": GOOGLE_CLIENT_ID, "redirect_uri": GOOGLE_REDIRECT_URI, "response_type": "code", "scope": "openid email profile", "access_type": "online", "prompt": "select_account"}
@@ -306,28 +417,23 @@ async def callback_google_direct(code: str, db: Session = Depends(get_db)):
         user_resp = await client.get("https://www.googleapis.com/oauth2/v3/userinfo", params={"access_token": access_token})
         g_user = user_resp.json()
 
-    # Генерация данных для Casdoor (чтобы не было ошибок валидации)
     unique_login = f"google_{g_user.get('sub')}"
     clean_data = {
         "id": g_user.get("sub"),
-        # Если нет имени, используем часть email или логин
         "name": g_user.get("name") or g_user.get("email", "").split("@")[0] or unique_login,
         "avatar": g_user.get("picture"),
-        # Если нет email, создаем технический
         "email": g_user.get("email") or f"{unique_login}@noemail.com",
         "phone": ""
     }
 
-    # === СИНХРОНИЗАЦИЯ С CASDOOR ===
     try:
         await sync_user_to_casdoor(clean_data, "google")
     except Exception as e:
         logger.error(f"Ошибка синхронизации Google (клиент все равно войдет): {e}")
-    # ===============================
 
     return update_session_cookie(RedirectResponse("/"), clean_data, "google", db)
 
-# --- YANDEX (ИСПРАВЛЕНО) ---
+# --- YANDEX ---
 @app.get("/login/yandex-direct")
 def login_yandex_direct():
     params = {"client_id": YANDEX_CLIENT_ID, "redirect_uri": YANDEX_REDIRECT_URI, "response_type": "code"}
@@ -348,7 +454,6 @@ async def callback_yandex_direct(code: str, db: Session = Depends(get_db)):
     avatar_id = y_user.get("default_avatar_id")
     avatar_url = f"https://avatars.yandex.net/get-yapic/{avatar_id}/islands-200" if avatar_id else ""
     
-    # Генерация уникальных данных для Yandex
     unique_login = f"yandex_{y_user.get('id')}"
     clean_data = {
         "id": y_user.get("id"),
@@ -358,12 +463,10 @@ async def callback_yandex_direct(code: str, db: Session = Depends(get_db)):
         "phone": y_user.get("default_phone", {}).get("number", "")
     }
 
-    # === СИНХРОНИЗАЦИЯ С CASDOOR ===
     try:
         await sync_user_to_casdoor(clean_data, "yandex")
     except Exception as e:
         logger.error(f"Ошибка синхронизации Yandex (клиент все равно войдет): {e}")
-    # ===============================
 
     return update_session_cookie(RedirectResponse("/"), clean_data, "yandex", db)
 
