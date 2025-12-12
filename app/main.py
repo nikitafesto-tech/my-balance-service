@@ -181,6 +181,49 @@ async def sync_user_to_casdoor(user_data, provider_prefix):
     
     return casdoor_username
 
+# === НОВАЯ ФУНКЦИЯ: СИНХРОНИЗАЦИЯ БАЛАНСА ===
+async def update_casdoor_balance(user_id, new_balance):
+    # user_id - это например "google_115..."
+    # В Casdoor ID пользователя это "organization/name"
+    owner = "users" 
+    full_id = f"{owner}/{user_id}"
+    
+    # Используем внутренний адрес Docker для надежности
+    api_base = "http://casdoor:8000" 
+    
+    api_get = f"{api_base}/api/get-user?id={full_id}"
+    api_update = f"{api_base}/api/update-user"
+    
+    auth = (CASDOOR_CLIENT_ID, CASDOOR_CLIENT_SECRET)
+
+    async with httpx.AsyncClient() as client:
+        try:
+            # 1. Получаем пользователя
+            resp_get = await client.get(api_get, auth=auth)
+            if resp_get.status_code != 200:
+                logger.error(f"Не удалось найти пользователя в Casdoor для обновления баланса: {full_id}")
+                return
+
+            user_data = resp_get.json().get('data')
+            if not user_data:
+                logger.error("Casdoor вернул пустые данные при запросе баланса")
+                return
+
+            # 2. Обновляем поле Score
+            user_data['score'] = int(new_balance) 
+
+            # 3. Отправляем обратно
+            # Casdoor требует id в query params при обновлении
+            resp_update = await client.post(f"{api_update}?id={full_id}", json=user_data, auth=auth)
+            
+            if resp_update.json().get('status') == 'ok':
+                logger.info(f"Баланс в Casdoor (Score) успешно обновлен для {user_id}: {new_balance}")
+            else:
+                logger.error(f"Ошибка обновления баланса в Casdoor: {resp_update.text}")
+
+        except Exception as e:
+            logger.error(f"Ошибка связи с Casdoor при обновлении баланса: {e}")
+
 async def finalize_login(data, prefix, db):
     await sync_user_to_casdoor(data, prefix)
 
@@ -265,7 +308,6 @@ async def create_payment(request: Request, data: dict = Body(...), db: Session =
 
     try:
         # Мы НЕ передаем payment_method_data, чтобы виджет сам дал выбор (Карта или СБП)
-        # Это решает проблему ошибки "invalid_request"
         payment = YooPayment.create({
             "amount": {
                 "value": str(amount),
@@ -331,6 +373,11 @@ async def payment_webhook(request: Request, db: Session = Depends(get_db)):
                 wallet = db.query(UserWallet).filter(UserWallet.casdoor_id == user_id).first()
                 if wallet:
                     wallet.balance += amount
+                    logger.info(f"Баланс в ЛК обновлен. Новый: {wallet.balance}")
+                    
+                    # === СИНХРОНИЗАЦИЯ С CASDOOR ===
+                    await update_casdoor_balance(user_id, wallet.balance)
+                    # ===============================
             
             db.commit()
             
