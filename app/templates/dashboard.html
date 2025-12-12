@@ -8,7 +8,7 @@
     <script src="https://yookassa.ru/checkout-widget/v1/checkout-widget.js"></script>
     
     <style>
-        /* --- СТИЛИ --- */
+        /* Базовые стили */
         body { font-family: sans-serif; background-color: #f4f6f8; margin: 0; padding: 0; }
         .header { background: #fff; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e1e4e8; }
         .card { background: #fff; margin: 20px auto; padding: 30px; border-radius: 12px; max-width: 600px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
@@ -17,37 +17,13 @@
 
         /* Ввод суммы */
         .payment-section { margin-top: 25px; border-top: 1px solid #eee; padding-top: 20px; }
-        .payment-input-group { margin-bottom: 20px; }
+        .payment-input-group { margin-bottom: 20px; display: flex; align-items: center; gap: 15px; }
         .payment-input { padding: 12px; border: 1px solid #ddd; border-radius: 8px; width: 100%; max-width: 150px; font-size: 24px; font-weight: bold; outline: none; }
         .payment-input:focus { border-color: #27ae60; }
 
-        /* Выбор метода оплаты (Радио-кнопки как плитки) */
-        .payment-methods { display: flex; gap: 10px; margin-bottom: 20px; }
-        .method-label {
-            flex: 1;
-            border: 2px solid #eee;
-            border-radius: 8px;
-            padding: 15px;
-            cursor: pointer;
-            text-align: center;
-            transition: all 0.2s;
-            position: relative;
-        }
-        .method-label:hover { border-color: #bbb; }
-        
-        /* Скрываем настоящий радио инпут */
-        .method-input { position: absolute; opacity: 0; cursor: pointer; }
-        
-        /* Активное состояние выбранной плитки */
-        .method-input:checked + .method-content { color: #27ae60; font-weight: bold; }
-        .method-label:has(.method-input:checked) { border-color: #27ae60; background-color: #f0fdf4; }
-
-        .method-icon { display: block; font-size: 24px; margin-bottom: 5px; }
-
         /* Кнопка оплаты */
         .payment-btn { 
-            width: 100%; 
-            padding: 15px; 
+            padding: 15px 30px; 
             background-color: #27ae60; 
             color: white; 
             border: none; 
@@ -56,6 +32,7 @@
             font-size: 18px; 
             font-weight: 500; 
             transition: background 0.2s; 
+            flex-grow: 1; /* Растягиваем кнопку */
         }
         .payment-btn:hover { background-color: #219150; }
         .payment-btn:disabled { background-color: #bdc3c7; cursor: not-allowed; }
@@ -68,7 +45,7 @@
         }
         .modal-overlay.active { opacity: 1; }
         .modal-content {
-            background-color: transparent; width: 100%; max-width: 450px; border-radius: 16px; position: relative;
+            background-color: transparent; width: 100%; max-width: 500px; border-radius: 16px; position: relative;
             padding: 0; box-shadow: 0 20px 50px rgba(0,0,0,0.3); overflow: hidden; transform: scale(0.95); transition: transform 0.3s;
         }
         .modal-overlay.active .modal-content { transform: scale(1); }
@@ -76,7 +53,7 @@
             position: absolute; right: 15px; top: 15px; width: 30px; height: 30px; background: rgba(255, 255, 255, 0.8);
             border-radius: 50%; text-align: center; line-height: 30px; color: #333; font-size: 24px; font-weight: bold; cursor: pointer; z-index: 10000;
         }
-        #yookassa-widget { width: 100%; height: 100%; min-height: 600px; background: #fff; }
+        #yookassa-widget { width: 100%; height: 100%; min-height: 650px; background: #fff; }
     </style>
 </head>
 <body>
@@ -101,37 +78,20 @@
         
         <div class="payment-section">
             <h3 style="margin: 0 0 15px 0;">Пополнить счет</h3>
+            <p style="color: #666; font-size: 14px; margin-bottom: 20px;">
+                Оплата банковской картой или через СБП (без комиссии)
+            </p>
             
             <div class="payment-input-group">
-                <label style="display:block; color:#777; margin-bottom:5px; font-size:12px;">Сумма пополнения</label>
-                <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 5px;">
                     <input type="number" id="amount-input" class="payment-input" placeholder="100" min="10" value="100">
                     <span style="font-size: 20px;">₽</span>
                 </div>
+                <button onclick="openPaymentModal()" class="payment-btn" id="pay-btn">
+                    Пополнить
+                </button>
             </div>
 
-            <label style="display:block; color:#777; margin-bottom:10px; font-size:12px;">Способ оплаты</label>
-            <div class="payment-methods">
-                <label class="method-label">
-                    <input type="radio" name="payment_method" value="bank_card" class="method-input" checked>
-                    <div class="method-content">
-                        <span class="method-icon">💳</span>
-                        Карта РФ
-                    </div>
-                </label>
-
-                <label class="method-label">
-                    <input type="radio" name="payment_method" value="sbp" class="method-input">
-                    <div class="method-content">
-                        <span class="method-icon">💠</span>
-                        СБП
-                    </div>
-                </label>
-            </div>
-
-            <button onclick="openPaymentModal()" class="payment-btn" id="pay-btn">
-                Оплатить
-            </button>
             <div id="error-msg" style="color: #e74c3c; margin-top: 10px; font-size: 14px; text-align: center;"></div>
         </div>
 
@@ -152,9 +112,6 @@
 
         async function openPaymentModal() {
             const amount = document.getElementById('amount-input').value;
-            // Получаем выбранный метод оплаты (bank_card или sbp)
-            const method = document.querySelector('input[name="payment_method"]:checked').value;
-            
             const btn = document.getElementById('pay-btn');
             const errorMsg = document.getElementById('error-msg');
             const modal = document.getElementById('payment-modal');
@@ -162,18 +119,15 @@
             if (amount < 10) { alert("Минимальная сумма 10 руб."); return; }
 
             btn.disabled = true;
-            btn.innerText = "Подготовка...";
+            btn.innerText = "Загрузка...";
             errorMsg.innerText = '';
 
             try {
-                // Отправляем на сервер сумму И выбранный метод
+                // Запрос без payment_method_type
                 const response = await fetch('/payment/create', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        amount: amount,
-                        payment_method_type: method // <-- Новое поле
-                    })
+                    body: JSON.stringify({ amount: amount })
                 });
 
                 const data = await response.json();
@@ -217,7 +171,7 @@
                 errorMsg.innerText = "Ошибка: " + e.message;
             } finally {
                 btn.disabled = false;
-                btn.innerText = "Оплатить";
+                btn.innerText = "Пополнить";
             }
         }
 
