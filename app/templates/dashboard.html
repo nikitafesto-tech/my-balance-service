@@ -8,94 +8,80 @@
     <script src="https://yookassa.ru/checkout-widget/v1/checkout-widget.js"></script>
     
     <style>
-        /* Базовые стили */
+        /* --- СТИЛИ --- */
         body { font-family: sans-serif; background-color: #f4f6f8; margin: 0; padding: 0; }
         .header { background: #fff; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e1e4e8; }
         .card { background: #fff; margin: 20px auto; padding: 30px; border-radius: 12px; max-width: 600px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
         .balance-title { color: #888; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
         .balance-amount { font-size: 36px; font-weight: bold; margin: 10px 0; color: #2c3e50; }
 
-        /* Форма ввода (на странице) */
-        .payment-input-group { display: flex; align-items: center; gap: 10px; margin-top: 15px; }
-        .payment-input { padding: 12px; border: 1px solid #ddd; border-radius: 8px; width: 120px; font-size: 18px; outline: none; }
+        /* Ввод суммы */
+        .payment-section { margin-top: 25px; border-top: 1px solid #eee; padding-top: 20px; }
+        .payment-input-group { margin-bottom: 20px; }
+        .payment-input { padding: 12px; border: 1px solid #ddd; border-radius: 8px; width: 100%; max-width: 150px; font-size: 24px; font-weight: bold; outline: none; }
         .payment-input:focus { border-color: #27ae60; }
-        .payment-btn { padding: 12px 24px; background-color: #27ae60; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 500; transition: background 0.2s; }
+
+        /* Выбор метода оплаты (Радио-кнопки как плитки) */
+        .payment-methods { display: flex; gap: 10px; margin-bottom: 20px; }
+        .method-label {
+            flex: 1;
+            border: 2px solid #eee;
+            border-radius: 8px;
+            padding: 15px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+            position: relative;
+        }
+        .method-label:hover { border-color: #bbb; }
+        
+        /* Скрываем настоящий радио инпут */
+        .method-input { position: absolute; opacity: 0; cursor: pointer; }
+        
+        /* Активное состояние выбранной плитки */
+        .method-input:checked + .method-content { color: #27ae60; font-weight: bold; }
+        .method-label:has(.method-input:checked) { border-color: #27ae60; background-color: #f0fdf4; }
+
+        .method-icon { display: block; font-size: 24px; margin-bottom: 5px; }
+
+        /* Кнопка оплаты */
+        .payment-btn { 
+            width: 100%; 
+            padding: 15px; 
+            background-color: #27ae60; 
+            color: white; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-size: 18px; 
+            font-weight: 500; 
+            transition: background 0.2s; 
+        }
         .payment-btn:hover { background-color: #219150; }
         .payment-btn:disabled { background-color: #bdc3c7; cursor: not-allowed; }
 
-        /* === ИСПРАВЛЕННЫЕ СТИЛИ ПОП-АПА === */
+        /* Модальное окно */
         .modal-overlay {
-            display: none; 
-            position: fixed; 
-            z-index: 9999; /* Поверх всего */
-            left: 0;
-            top: 0;
-            width: 100%; 
-            height: 100%; 
-            background-color: rgba(0, 0, 0, 0.6); /* Темнее фон */
-            backdrop-filter: blur(4px); /* Размытие фона */
-            align-items: center;
-            justify-content: center;
-            opacity: 0;
-            transition: opacity 0.3s ease;
+            display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px);
+            align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease;
         }
-
-        .modal-overlay.active {
-            opacity: 1;
-        }
-
+        .modal-overlay.active { opacity: 1; }
         .modal-content {
-            background-color: transparent; /* Убираем белый фон, пусть его задает виджет */
-            width: 100%;
-            max-width: 500px; /* Оптимальная ширина виджета */
-            border-radius: 16px;
-            position: relative;
-            /* УБИРАЕМ PADDING, чтобы виджет прилегал к краям */
-            padding: 0; 
-            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
-            overflow: hidden; /* Обрезаем всё лишнее */
-            transform: scale(0.95);
-            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            background-color: transparent; width: 100%; max-width: 450px; border-radius: 16px; position: relative;
+            padding: 0; box-shadow: 0 20px 50px rgba(0,0,0,0.3); overflow: hidden; transform: scale(0.95); transition: transform 0.3s;
         }
-
-        .modal-overlay.active .modal-content {
-            transform: scale(1);
-        }
-
-        /* Крестик закрытия выносим визуально ВНУТРЬ угла виджета */
+        .modal-overlay.active .modal-content { transform: scale(1); }
         .close-btn {
-            position: absolute;
-            right: 15px;
-            top: 15px;
-            width: 30px;
-            height: 30px;
-            background: rgba(255, 255, 255, 0.8);
-            border-radius: 50%;
-            text-align: center;
-            line-height: 30px;
-            color: #333;
-            font-size: 24px;
-            font-weight: bold;
-            cursor: pointer;
-            z-index: 10000; /* Поверх виджета */
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            transition: all 0.2s;
+            position: absolute; right: 15px; top: 15px; width: 30px; height: 30px; background: rgba(255, 255, 255, 0.8);
+            border-radius: 50%; text-align: center; line-height: 30px; color: #333; font-size: 24px; font-weight: bold; cursor: pointer; z-index: 10000;
         }
-        .close-btn:hover { background: #fff; color: #e74c3c; transform: rotate(90deg); }
-
-        /* Контейнер виджета */
-        #yookassa-widget {
-            width: 100%;
-            height: 100%;
-            min-height: 600px; /* Даем достаточно высоты */
-            background: #fff; /* Фон самого виджета */
-        }
+        #yookassa-widget { width: 100%; height: 100%; min-height: 600px; background: #fff; }
     </style>
 </head>
 <body>
     <header class="header">
         <div style="font-weight: bold; font-size: 18px;">MyService</div>
-        
         <div class="profile-widget">
             <div style="text-align: right;">
                 <div style="font-weight: bold; font-size: 14px;">{{ name }}</div>
@@ -113,14 +99,40 @@
         <div class="balance-title">Ваш баланс</div>
         <div class="balance-amount">{{ balance }} ₽</div>
         
-        <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px;">
-            <h3 style="margin: 0 0 10px 0;">Пополнить счет</h3>
+        <div class="payment-section">
+            <h3 style="margin: 0 0 15px 0;">Пополнить счет</h3>
+            
             <div class="payment-input-group">
-                <input type="number" id="amount-input" class="payment-input" placeholder="100" min="10" value="100">
-                <span style="font-size: 18px;">₽</span>
-                <button onclick="openPaymentModal()" class="payment-btn" id="pay-btn">Пополнить</button>
+                <label style="display:block; color:#777; margin-bottom:5px; font-size:12px;">Сумма пополнения</label>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <input type="number" id="amount-input" class="payment-input" placeholder="100" min="10" value="100">
+                    <span style="font-size: 20px;">₽</span>
+                </div>
             </div>
-            <div id="error-msg" style="color: #e74c3c; margin-top: 10px; font-size: 14px;"></div>
+
+            <label style="display:block; color:#777; margin-bottom:10px; font-size:12px;">Способ оплаты</label>
+            <div class="payment-methods">
+                <label class="method-label">
+                    <input type="radio" name="payment_method" value="bank_card" class="method-input" checked>
+                    <div class="method-content">
+                        <span class="method-icon">💳</span>
+                        Карта РФ
+                    </div>
+                </label>
+
+                <label class="method-label">
+                    <input type="radio" name="payment_method" value="sbp" class="method-input">
+                    <div class="method-content">
+                        <span class="method-icon">💠</span>
+                        СБП
+                    </div>
+                </label>
+            </div>
+
+            <button onclick="openPaymentModal()" class="payment-btn" id="pay-btn">
+                Оплатить
+            </button>
+            <div id="error-msg" style="color: #e74c3c; margin-top: 10px; font-size: 14px; text-align: center;"></div>
         </div>
 
         <div style="margin-top: 30px;">
@@ -140,6 +152,9 @@
 
         async function openPaymentModal() {
             const amount = document.getElementById('amount-input').value;
+            // Получаем выбранный метод оплаты (bank_card или sbp)
+            const method = document.querySelector('input[name="payment_method"]:checked').value;
+            
             const btn = document.getElementById('pay-btn');
             const errorMsg = document.getElementById('error-msg');
             const modal = document.getElementById('payment-modal');
@@ -147,22 +162,24 @@
             if (amount < 10) { alert("Минимальная сумма 10 руб."); return; }
 
             btn.disabled = true;
-            btn.innerText = "Загрузка...";
+            btn.innerText = "Подготовка...";
             errorMsg.innerText = '';
 
             try {
+                // Отправляем на сервер сумму И выбранный метод
                 const response = await fetch('/payment/create', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ amount: amount })
+                    body: JSON.stringify({ 
+                        amount: amount,
+                        payment_method_type: method // <-- Новое поле
+                    })
                 });
 
                 const data = await response.json();
                 if (data.error) throw new Error(data.error);
 
-                // Показываем окно с анимацией
                 modal.style.display = 'flex';
-                // Небольшая задержка для срабатывания CSS-транзиции
                 setTimeout(() => { modal.classList.add('active'); }, 10);
 
                 if (checkout) checkout.destroy();
@@ -171,11 +188,8 @@
                     confirmation_token: data.confirmation_token,
                     return_url: window.location.href,
                     customization: {
-                        colors: {
-                            control_primary: '#27ae60',
-                            background: '#FFFFFF'
-                        },
-                        modal: false // ВАЖНО: Отключаем встроенную модальность виджета, т.к. мы сделали свою обертку
+                        colors: { control_primary: '#27ae60', background: '#FFFFFF' },
+                        modal: false
                     },
                     error_callback: function(error) {
                         console.log(error);
@@ -203,20 +217,16 @@
                 errorMsg.innerText = "Ошибка: " + e.message;
             } finally {
                 btn.disabled = false;
-                btn.innerText = "Пополнить";
+                btn.innerText = "Оплатить";
             }
         }
 
         function closeModal() {
             const modal = document.getElementById('payment-modal');
             modal.classList.remove('active');
-            // Ждем окончания анимации перед скрытием
             setTimeout(() => {
                 modal.style.display = 'none';
-                if (checkout) {
-                    checkout.destroy();
-                    checkout = null;
-                }
+                if (checkout) { checkout.destroy(); checkout = null; }
             }, 300);
         }
 

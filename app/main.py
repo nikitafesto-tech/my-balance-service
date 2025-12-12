@@ -247,11 +247,13 @@ def home(request: Request, db: Session = Depends(get_db)):
 def login_page(request: Request):
     return templates.TemplateResponse("signin.html", {"request": request})
 
-# --- ПЛАТЕЖИ (ВИДЖЕТ) ---
+# --- ПЛАТЕЖИ (ВИДЖЕТ С ВЫБОРОМ МЕТОДА) ---
 
 @app.post("/payment/create")
 async def create_payment(request: Request, data: dict = Body(...), db: Session = Depends(get_db)):
     amount = data.get("amount")
+    # Получаем метод оплаты: 'bank_card' или 'sbp' (по умолчанию карта)
+    payment_method = data.get("payment_method_type", "bank_card")
     
     session_id = request.cookies.get("session_id")
     if not session_id:
@@ -264,8 +266,8 @@ async def create_payment(request: Request, data: dict = Body(...), db: Session =
     user_id = db_session.token 
 
     try:
-        # Тип подтверждения: embedded (Виджет)
-        payment = YooPayment.create({
+        # Формируем тело запроса для ЮKassa
+        payment_data = {
             "amount": {
                 "value": str(amount),
                 "currency": "RUB"
@@ -277,20 +279,26 @@ async def create_payment(request: Request, data: dict = Body(...), db: Session =
             "description": f"Пополнение баланса для {user_id}",
             "metadata": {
                 "user_id": user_id
+            },
+            # !!! ВАЖНО: Передаем конкретный метод оплаты !!!
+            "payment_method_data": {
+                "type": payment_method
             }
-        })
+        }
+
+        payment = YooPayment.create(payment_data)
         
         new_payment = Payment(
             yookassa_payment_id=payment.id,
             user_id=user_id,
             amount=float(amount),
             status="pending",
-            description=f"Пополнение на {amount} руб."
+            description=f"Пополнение на {amount} руб. ({payment_method})"
         )
         db.add(new_payment)
         db.commit()
         
-        logger.info(f"Создан токен для виджета: {payment.confirmation.confirmation_token}")
+        logger.info(f"Создан токен для виджета ({payment_method}): {payment.confirmation.confirmation_token}")
         
         return JSONResponse({
             "confirmation_token": payment.confirmation.confirmation_token
