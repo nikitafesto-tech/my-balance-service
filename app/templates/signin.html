@@ -2,126 +2,153 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Вход в Neirosetim</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Вход в MyService</title>
     <style>
+        /* --- Базовые стили и сброс --- */
+        * { box-sizing: border-box; }
         body {
-            background-color: #121212;
+            background-color: #0a0a0a; /* Чуть темнее фон */
             color: #ffffff;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
+            padding: 20px; /* Отступ на мобилках */
         }
+
+        /* --- Карточка входа --- */
         .login-card {
-            background-color: #1e1e1e;
-            border-radius: 20px;
+            background-color: #1a1a1a; /* Чуть светлее фона */
+            border-radius: 24px;
             padding: 40px;
             width: 100%;
-            max-width: 360px;
+            max-width: 400px; /* Немного шире */
             text-align: center;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4); /* Более мягкая тень */
         }
-        h2 { margin-bottom: 10px; font-weight: 600; }
-        p.subtitle { color: #aaaaaa; font-size: 14px; margin-bottom: 30px; }
-        
-        .btn-yandex {
-            background-color: #fc3f1d;
-            color: white;
+
+        /* --- Типографика --- */
+        h2 { margin: 0 0 10px 0; font-weight: 700; font-size: 24px; }
+        p.subtitle { color: #999; font-size: 15px; margin: 0 0 35px 0; }
+
+        /* --- Кнопки --- */
+        .btn {
             display: flex;
             align-items: center;
             justify-content: center;
             width: 100%;
             padding: 14px;
-            border-radius: 12px;
+            border-radius: 14px;
             text-decoration: none;
-            font-weight: bold;
+            font-weight: 600;
             font-size: 16px;
-            margin-bottom: 20px;
-            transition: opacity 0.2s;
             border: none;
             cursor: pointer;
+            transition: transform 0.1s ease-in-out, opacity 0.2s;
+        }
+        .btn:active { transform: scale(0.98); }
+        .btn svg { width: 24px; height: 24px; margin-right: 12px; }
+
+        /* Основная кнопка (Яндекс) */
+        .btn-yandex {
+            background-color: #FC3F1D; /* Фирменный красный */
+            color: white;
+            margin-bottom: 25px;
+            padding: 16px; /* Чуть больше основной кнопке */
+            font-size: 17px;
         }
         .btn-yandex:hover { opacity: 0.9; }
-        .btn-yandex svg { margin-right: 10px; height: 20px; width: 20px; fill: white; }
+
+        /* Второстепенные кнопки (Серые) */
+        .btn-secondary {
+            background-color: #2a2a2a;
+            color: #cccccc;
+            margin-bottom: 12px;
+            font-weight: 500;
+        }
+        .btn-secondary:hover { background-color: #333; color: #fff; }
+        .btn-secondary svg { fill: #999; }
+
+        /* --- Ряд соцсетей --- */
+        .social-divider { color: #555; font-size: 13px; margin: 25px 0; display: flex; align-items: center; }
+        .social-divider::before, .social-divider::after { content: ""; flex: 1; border-bottom: 1px solid #333; margin: 0 10px; }
 
         .social-row {
             display: flex;
             justify-content: center;
             gap: 15px;
-            margin-bottom: 25px;
+            margin-bottom: 30px;
         }
         .social-icon {
-            background-color: #2c2c2c;
-            width: 50px;
-            height: 50px;
+            background-color: #2a2a2a;
+            width: 56px;
+            height: 56px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: background 0.2s;
+            transition: all 0.2s;
             text-decoration: none;
+            border: 1px solid transparent;
         }
-        .social-icon:hover { background-color: #3d3d3d; }
-        .social-icon svg { width: 24px; height: 24px; }
+        .social-icon:hover { background-color: #333; border-color: #444; transform: translateY(-2px); }
+        .social-icon svg { width: 28px; height: 28px; }
 
-        .divider { color: #555; font-size: 13px; margin: 20px 0; position: relative; }
+        /* --- Футер --- */
+        .footer-links { margin-top: 35px; font-size: 12px; color: #666; line-height: 1.5; }
+        .footer-links a { color: #888; text-decoration: none; border-bottom: 1px dotted #555; }
+        .footer-links a:hover { color: #aaa; border-bottom-style: solid; }
 
-        .btn-secondary {
-            background-color: #2c2c2c;
-            color: #ffffff;
-            display: block;
-            width: 100%;
-            padding: 14px;
-            border-radius: 12px;
-            text-decoration: none;
-            font-size: 15px;
-            margin-bottom: 12px;
-            transition: background 0.2s;
-            box-sizing: border-box;
-            border: none;
-            cursor: pointer;
+        /* --- Адаптив для мобильных --- */
+        @media (max-width: 480px) {
+            .login-card { padding: 30px 25px; }
+            h2 { font-size: 22px; }
+            .social-icon { width: 50px; height: 50px; }
+            .social-icon svg { width: 24px; height: 24px; }
         }
-        .btn-secondary:hover { background-color: #383838; }
-        
-        .footer-links { margin-top: 30px; font-size: 12px; color: #666; line-height: 1.5; }
-        .footer-links a { color: #888; text-decoration: none; }
     </style>
 </head>
 <body>
 
 <div class="login-card">
-    <h2>Войти или зарегистрироваться</h2>
-    <p class="subtitle">используя социальную сеть</p>
+    <h2>Вход в MyService</h2>
+    <p class="subtitle">Выберите способ авторизации</p>
 
-    <a href="/login/yandex-direct" class="btn-yandex">
-        <svg viewBox="0 0 24 24"><path d="M14.6 20.5c-1.8-3.9-3.4-7.5-3.4-7.5-.5-.9-.9-1.2-1.8-1.2h-3v8.7H2V2h4.5c4 0 6.6 2.3 6.6 6 0 2.2-1 4.2-2.8 5.2.7.7 2.5 4.5 3.5 6.6l.8 1.8h-4.6z"/></svg>
+    <a href="/login/yandex-direct" class="btn btn-yandex">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="12" fill="#FC3F1D"/><path d="M10.458 17.67H12.3L10.729 13.857C11.291 13.783 11.85 13.687 12.387 13.482C12.998 13.252 13.522 12.95 13.956 12.537C14.391 12.116 14.736 11.626 14.991 11.05C15.246 10.458 15.375 9.778 15.375 8.952C15.375 8.078 15.225 7.344 14.94 6.719C14.663 6.101 14.247 5.605 13.722 5.231C13.204 4.861 12.581 4.602 11.856 4.462C11.246 4.341 10.438 4.297 9.468 4.297H7.502V17.67H10.458ZM12.098 11.365H10.458V6.958H11.431C11.964 6.958 12.346 7.184 12.552 7.644C12.642 7.844 12.69 8.199 12.69 8.726C12.69 9.205 12.628 9.655 12.522 10.064C12.346 10.745 11.961 11.194 11.431 11.365H12.098Z" fill="white"/></svg>
         Войти через Яндекс
     </a>
 
+    <div class="social-divider">или через другие сервисы</div>
+
     <div class="social-row">
         <a href="/login/google-direct" class="social-icon" title="Google">
-            <svg viewBox="0 0 24 24"><path fill="#EA4335" d="M12 5.1c1.8 0 3.5.7 4.8 1.8l3.6-3.6C18.2 1.2 15.3 0 12 0 7.4 0 3.4 2.6 1.5 6.4l4.2 3.3C6.7 6.8 9.1 5.1 12 5.1z"/><path fill="#34A853" d="M23.6 9.8c.2.7.3 1.4.3 2.2 0 4.4-3 7.6-7.5 8.9V12h8.7c.1.7.1-.7-.2-2.2z"/><path fill="#4285F4" d="M23.6 9.8C22.6 15.7 18.2 20 12 20c-2.9 0-5.6-1.1-7.7-2.9l-3.8 3C4.6 23.3 8.1 24 12 24c6.6 0 12.2-4.6 13.8-10.8H12v-3.4h11.6z"/><path fill="#FBBC05" d="M5.7 9.7l-4.2-3.3C.6 8.3 0 10.1 0 12c0 1.9.6 3.7 1.5 5.6l4.2-3.3C5.2 13.3 5 12.7 5 12c0-.8.2-1.4.5-2.3z"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
         </a>
-
-        <a href="#" onclick="alert('Скоро подключим!')" class="social-icon" title="Telegram">
-            <svg viewBox="0 0 24 24" fill="#0088cc"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+        <a href="/login/vk-direct" class="social-icon" title="ВКонтакте" style="background-color: #0077FF;">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M15.684 0H8.316C1.592 0 0 1.592 0 8.316v7.368C0 22.408 1.592 24 8.316 24h7.368C22.408 24 24 22.408 24 15.684V8.316C24 1.592 22.408 0 15.684 0zm3.248 16.87s-2.69.098-4.178-2.411c0 0-1.175-1.364-1.815-1.822-.526-.377-.743-.53-1.112-.53-.275 0-.578.354-.578 1.15v1.562s.051.662-.698.747c-2.016.23-4.658-3.43-6.404-8.65 0 0-.216-.527.378-.55h2.633s.644.058 1.08.875c.923 1.73 2.498 4.668 2.824 4.928.235.187.427.176.728.176.329 0 .639-.222.639-.69v-3.388c0-1.172.327-1.74-.78-1.845-.345-.033.113-.941 1.079-.941h2.146c.67 0 .903.253.993.796.087.528.016 2.345 0 2.657-.018.353.112.92.659.675 1.554-.696 3.995-4.298 3.995-4.298s.333-.51.839-.496l2.233.032s.679-.04.985.457c.274.444-.096 1.38-2.215 3.728-2.347 2.598-1.689 2.514 1.12 4.734 1.393 1.1 2.156 2.24 2.204 2.324.477.838-.38 1.335-.38 1.335z"/></svg>
         </a>
-
-        <a href="/login/vk-direct" class="social-icon" title="ВКонтакте">
-            <svg viewBox="0 0 24 24" fill="#0077FF"><path d="M13.162 18.994c.609 0 .858-.406.851-1.184 0-1.653.75-2.83 2.546-2.83.673 0 .96.386 1.148 1.213.153.671.346 2.801 2.503 2.801h1.498c.703 0 1.055-.386.852-1.187-.393-1.551-1.888-3.064-2.228-3.32-.516-.395-.494-.658 0-1.316 0 0 2.228-3.52 2.459-4.706.113-.578-.171-.854-.93-.854h-2.583c-.703 0-.918.395-1.089.854-.42 1.119-1.428 3.093-1.848 3.343-.271.164-.407.082-.407-.526V8.409c0-1.106.13-1.606-.388-1.855-.33-.158-.703-.236-1.257-.236-2.264 0-2.887 1.092-2.732 2.895.068.789.261 2.304 0 2.632-.266.335-1.018-1.25-2.28-3.948-.231-.493-.377-.854-1.233-.854H5.32c-.886 0-.992.395-.873.854 1.149 4.422 4.088 8.87 8.714 8.87v-1.112z"/></svg>
+        <a href="#" onclick="alert('Скоро подключим!')" class="social-icon" title="Telegram" style="background-color: #2AABEE;">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.161c-.18 1.897-.962 6.502-1.359 8.627-.168.9-.5 1.201-.82 1.23-.697.064-1.226-.461-1.901-.903-1.056-.692-1.653-1.123-2.678-1.799-1.185-.781-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.139-5.062 3.345-.479.329-.913.489-1.302.481-.428-.008-1.252-.241-1.865-.44-.751-.244-1.349-.374-1.297-.789.027-.216.324-.437.893-.663 3.498-1.524 5.831-2.529 6.998-3.014 3.333-1.386 4.025-1.627 4.477-1.635.1 0 .32.02.47.14.12.1.17.28.17.43z"/></svg>
         </a>
     </div>
 
-    <div class="divider">— или —</div>
+    <div class="social-divider">другие способы</div>
 
-    <a href="#" onclick="alert('Скоро!')" class="btn-secondary">📧 Через эл.почту</a>
-    <a href="/login/password" onclick="alert('Это мы тоже прикрутим позже, если надо')" class="btn-secondary">🔑 У меня есть логин/пароль</a>
+    <a href="#" onclick="alert('Скоро!')" class="btn btn-secondary">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+        Через эл.почту
+    </a>
+    <a href="/login/password" onclick="alert('Это мы тоже прикрутим позже, если надо')" class="btn btn-secondary">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4h-10.35zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>
+        У меня есть пароль
+    </a>
 
     <div class="footer-links">
-        Нажимая кнопку, вы приинимаете <a href="#">Пользовательское соглашение</a>
+        Нажимая кнопку, вы принимаете <a href="#">Пользовательское соглашение</a> и <a href="#">Политику конфиденциальности</a>
     </div>
 </div>
 
