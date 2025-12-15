@@ -13,7 +13,7 @@ import secrets
 import hashlib
 import base64
 import httpx
-from datetime import datetime, timedelta
+from datetime import datetime
 import json
 import smtplib
 import random
@@ -61,7 +61,6 @@ AUTH_URL = os.getenv("AUTH_URL", "http://localhost:8000")
 
 logger.info(f"Запуск с настройками: SITE_URL={SITE_URL}, AUTH_URL={AUTH_URL}")
 
-# Данные для соцсетей
 VK_CLIENT_ID = os.getenv("VK_CLIENT_ID")
 VK_CLIENT_SECRET = os.getenv("VK_CLIENT_SECRET")
 VK_REDIRECT_URI = f"{SITE_URL}/callback/vk"
@@ -74,11 +73,10 @@ YANDEX_CLIENT_ID = os.getenv("YANDEX_CLIENT_ID")
 YANDEX_CLIENT_SECRET = os.getenv("YANDEX_CLIENT_SECRET")
 YANDEX_REDIRECT_URI = f"{SITE_URL}/callback/yandex-direct"
 
-# Данные Casdoor
 CASDOOR_CLIENT_ID = os.getenv("CASDOOR_CLIENT_ID")
 CASDOOR_CLIENT_SECRET = os.getenv("CASDOOR_CLIENT_SECRET")
 
-# Данные ЮKassa
+# === НАСТРОЙКИ ЮKASSA ===
 YOOKASSA_SHOP_ID = os.getenv("YOOKASSA_SHOP_ID")
 YOOKASSA_SECRET_KEY = os.getenv("YOOKASSA_SECRET_KEY")
 
@@ -91,7 +89,11 @@ else:
 
 # === НАСТРОЙКИ ПОЧТЫ (SMTP) ===
 SMTP_HOST = os.getenv("SMTP_HOST")
-SMTP_PORT = int(os.getenv("SMTP_PORT", 465))
+# Важно: преобразуем порт в int, иначе будет ошибка
+try:
+    SMTP_PORT = int(os.getenv("SMTP_PORT", 465))
+except ValueError:
+    SMTP_PORT = 465
 SMTP_USER = os.getenv("SMTP_USER")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 
@@ -128,8 +130,8 @@ try:
         status = Column(String, default="pending")
         description = Column(String, nullable=True)
         created_at = Column(DateTime, default=datetime.utcnow)
-
-    # === НОВАЯ ТАБЛИЦА: КОДЫ ПОЧТЫ ===
+        
+    # Таблица для кодов почты
     class EmailCode(Base):
         __tablename__ = "email_codes"
         id = Column(Integer, primary_key=True, index=True)
@@ -157,24 +159,25 @@ def generate_pkce():
     challenge = base64.urlsafe_b64encode(m.digest()).decode('ascii').rstrip('=')
     return verifier, challenge
 
-# Функция отправки письма
+# Функция отправки письма (ИСПРАВЛЕННАЯ)
 def send_email_via_smtp(to_email, code):
     if not SMTP_HOST or not SMTP_USER or not SMTP_PASSWORD:
-        logger.error("Настройки SMTP не заполнены!")
+        logger.error("Настройки SMTP не заполнены в .env!")
         return False
     
     try:
+        logger.info(f"Попытка отправки письма на {to_email} через {SMTP_HOST}:{SMTP_PORT}")
+        
         msg = MIMEMultipart()
         msg['From'] = SMTP_USER
         msg['To'] = to_email
-        msg['Subject'] = f"Код подтверждения: {code}"
+        msg['Subject'] = f"Код входа: {code}"
         
         body = f"""
         <html>
           <body style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
             <div style="max-width: 500px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 10px; text-align: center;">
                <h2 style="color: #333;">Вход в MyService</h2>
-               <p style="font-size: 16px; color: #555;">Ваш код для входа:</p>
                <div style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #27ae60; margin: 20px 0;">
                   {code}
                </div>
@@ -185,14 +188,21 @@ def send_email_via_smtp(to_email, code):
         """
         msg.attach(MIMEText(body, 'html'))
         
+        # Используем SMTP_SSL для порта 465 (Mail.ru / Yandex / VK Work)
         server = smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT)
+        # server.set_debuglevel(1) # Раскомментируй для глубокого дебага в консоли
+        
         server.login(SMTP_USER, SMTP_PASSWORD)
         server.send_message(msg)
         server.quit()
-        logger.info(f"Письмо с кодом отправлено на {to_email}")
+        logger.info(f"✅ Письмо успешно отправлено на {to_email}")
         return True
+        
+    except smtplib.SMTPAuthenticationError:
+        logger.error("❌ Ошибка авторизации SMTP! Проверьте логин (полный email) и Пароль Приложения.")
+        return False
     except Exception as e:
-        logger.error(f"Ошибка отправки письма: {e}", exc_info=True)
+        logger.error(f"❌ Общая ошибка отправки письма: {e}", exc_info=True)
         return False
 
 async def sync_user_to_casdoor(user_data, provider_prefix):
@@ -200,8 +210,6 @@ async def sync_user_to_casdoor(user_data, provider_prefix):
     
     user_id = str(user_data.get("id"))
     full_name = user_data.get("name") or f"User {user_id}"
-    
-    # Для Email-входа используем email как часть ID
     casdoor_username = f"{provider_prefix}_{user_id}"
     
     casdoor_user = {
@@ -259,7 +267,6 @@ async def update_casdoor_balance(user_id, new_balance):
             resp_update = await client.post(f"{api_update}?id={full_id}", json=user_data, auth=auth)
             
             if resp_update.json().get('status') != 'ok':
-                 # Fallback to Score
                 user_data['score'] = int(new_balance)
                 await client.post(f"{api_update}?id={full_id}", json=user_data, auth=auth)
 
@@ -293,7 +300,7 @@ def update_session_cookie(response, data, prefix, db):
         db_session = UserSession(session_id=new_session_id, token=full_id)
         db.add(db_session)
         db.commit()
-
+        
         response.set_cookie(key="session_id", value=new_session_id, httponly=True, samesite="lax")
         return response
     except Exception as e:
@@ -331,29 +338,24 @@ def home(request: Request, db: Session = Depends(get_db)):
 def login_page(request: Request):
     return templates.TemplateResponse("signin.html", {"request": request})
 
-# === АВТОРИЗАЦИЯ ПО EMAIL (НОВЫЕ МАРШРУТЫ) ===
-
+# === АВТОРИЗАЦИЯ ПО EMAIL (МАРШРУТЫ) ===
 @app.post("/auth/email/request-code")
 async def request_email_code(data: dict = Body(...), db: Session = Depends(get_db)):
     email = data.get("email")
     if not email or "@" not in email:
         return JSONResponse({"error": "Некорректный Email"}, status_code=400)
     
-    # Генерируем код (4 цифры)
     code = str(random.randint(1000, 9999))
     
-    # Сохраняем в БД
-    # Сначала удалим старые коды для этого email
     db.query(EmailCode).filter(EmailCode.email == email).delete()
-    
     new_code = EmailCode(email=email, code=code)
     db.add(new_code)
     db.commit()
     
-    # Отправляем письмо
     success = send_email_via_smtp(email, code)
     if not success:
-        return JSONResponse({"error": "Ошибка отправки письма"}, status_code=500)
+        # Важно: клиенту возвращаем 500, чтобы он видел ошибку
+        return JSONResponse({"error": "Ошибка отправки письма. Проверьте логи сервера."}, status_code=500)
         
     return JSONResponse({"status": "ok", "message": "Code sent"})
 
@@ -365,38 +367,25 @@ async def verify_email_code(data: dict = Body(...), db: Session = Depends(get_db
     if not email or not code:
         return JSONResponse({"error": "Введите email и код"}, status_code=400)
         
-    # Ищем код в БД
-    # Можно добавить проверку времени (например, не старше 10 минут)
     record = db.query(EmailCode).filter(EmailCode.email == email, EmailCode.code == code).first()
-    
     if not record:
         return JSONResponse({"error": "Неверный код"}, status_code=400)
         
-    # Код верный! Удаляем его
     db.delete(record)
     db.commit()
     
-    # Создаем "чистый" ID из email (заменяем спецсимволы, чтобы Casdoor не ругался)
-    # Например: test@ya.ru -> test_ya_ru
     clean_id = email.replace("@", "_").replace(".", "_")
-    
     user_data = {
         "id": clean_id,
         "email": email,
-        "name": email.split("@")[0], # Имя = часть до @
+        "name": email.split("@")[0],
         "avatar": "",
         "phone": ""
     }
-    
-    # Синхронизируем с Casdoor
     await finalize_login(user_data, "email", db)
-    
-    # Логиним (ставим куку)
-    response = JSONResponse({"status": "ok"})
-    return update_session_cookie(response, user_data, "email", db)
+    return update_session_cookie(JSONResponse({"status": "ok"}), user_data, "email", db)
 
-# ... (Остальные маршруты оплаты и соцсетей остаются без изменений) ...
-
+# --- ПЛАТЕЖИ ---
 @app.post("/payment/create")
 async def create_payment(request: Request, data: dict = Body(...), db: Session = Depends(get_db)):
     amount = data.get("amount")
@@ -446,29 +435,60 @@ async def payment_webhook(request: Request, db: Session = Depends(get_db)):
     except Exception:
         return JSONResponse({"status": "error"}, status_code=500)
 
+# --- VK (С ДЕБАГОМ) ---
 @app.get("/login/vk-direct")
 def login_vk_direct():
     verifier, challenge = generate_pkce()
-    params = {"client_id": VK_CLIENT_ID, "redirect_uri": VK_REDIRECT_URI, "response_type": "code", "scope": "vkid.personal_info email phone", "code_challenge": challenge, "code_challenge_method": "S256"}
+    params = {"client_id": VK_CLIENT_ID, "redirect_uri": VK_REDIRECT_URI, "response_type": "code", "scope": "vkid.personal_info email phone", "code_challenge": challenge, "code_challenge_method": "S256", "state": "vk_login"}
     response = RedirectResponse(f"https://id.vk.com/authorize?{urllib.parse.urlencode(params)}")
     response.set_cookie("vk_verifier", verifier, httponly=True, samesite="lax")
     return response
 
 @app.get("/callback/vk")
 async def callback_vk(code: str, request: Request, db: Session = Depends(get_db)):
+    logger.info("Получен callback от VK")
     verifier = request.cookies.get("vk_verifier")
+    device_id = request.query_params.get("device_id") or str(uuid.uuid4())
     if not verifier: return RedirectResponse("/login")
+    
     async with httpx.AsyncClient() as client:
-        token_resp = await client.post("https://id.vk.com/oauth2/auth", data={"grant_type": "authorization_code", "code": code, "client_id": VK_CLIENT_ID, "client_secret": VK_CLIENT_SECRET, "code_verifier": verifier, "redirect_uri": VK_REDIRECT_URI, "device_id": str(uuid.uuid4())})
+        # Шаг 1: Получение токена
+        token_resp = await client.post("https://id.vk.com/oauth2/auth", data={
+            "grant_type": "authorization_code", "code": code,
+            "client_id": VK_CLIENT_ID, "client_secret": VK_CLIENT_SECRET,
+            "code_verifier": verifier, "redirect_uri": VK_REDIRECT_URI, "device_id": device_id
+        })
         token_data = token_resp.json()
+        logger.info(f"VK Token Response: {token_data}") # <-- Логируем ответ токена
+        
         access_token = token_data.get("access_token")
-        if not access_token: return HTMLResponse(f"Ошибка VK")
+        if not access_token:
+            logger.error(f"Ошибка получения токена VK. Тело ответа: {token_data}")
+            return HTMLResponse(f"Ошибка VK: {token_data}")
+
+        # Шаг 2: Получение данных пользователя
         user_resp = await client.post("https://id.vk.com/oauth2/user_info", data={"access_token": access_token, "client_id": VK_CLIENT_ID})
-        user_info = user_resp.json().get("user", {})
-    clean_data = {"id": user_info.get("user_id"), "name": f"{user_info.get('first_name','')} {user_info.get('last_name','')}".strip(), "avatar": user_info.get("avatar", ""), "email": user_info.get("email", ""), "phone": user_info.get("phone", "")}
+        user_json = user_resp.json()
+        logger.info(f"VK User Info Response: {user_json}") # <-- Логируем данные юзера
+        
+        user_info = user_json.get("user", {})
+        if not user_info:
+             logger.error("VK не вернул объект user. Возможно, scope не тот.")
+             # Fallback: иногда VK возвращает данные сразу в корне, если это старый API
+             # Но для vkid мы ожидаем ключ 'user'
+
+    clean_data = {
+        "id": user_info.get("user_id"), 
+        "name": f"{user_info.get('first_name','')}".strip(), # Берем хотя бы имя
+        "avatar": user_info.get("avatar", ""),
+        "email": user_info.get("email", ""),
+        "phone": user_info.get("phone", "")
+    }
+    
     await finalize_login(clean_data, "vk", db)
     return update_session_cookie(RedirectResponse("/"), clean_data, "vk", db)
 
+# --- GOOGLE/YANDEX (Без изменений) ---
 @app.get("/login/google-direct")
 def login_google_direct():
     params = {"client_id": GOOGLE_CLIENT_ID, "redirect_uri": GOOGLE_REDIRECT_URI, "response_type": "code", "scope": "openid email profile", "access_type": "online", "prompt": "select_account"}
