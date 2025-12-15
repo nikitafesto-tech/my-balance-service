@@ -24,10 +24,12 @@
     </div>
 </div>
 
-<div id="payment-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; align-items:center; justify-content:center;">
-    <div style="background:#fff; width:100%; max-width:500px; border-radius:20px; position:relative; overflow:hidden;">
-        <div onclick="closeModal()" style="position:absolute; top:15px; right:15px; cursor:pointer; font-size:24px; color:#000; z-index:100;">&times;</div>
-        <div id="yookassa-widget" style="width:100%; height:600px;"></div>
+<div id="payment-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index:9999; align-items:center; justify-content:center;">
+    <div style="width:100%; max-width:500px; border-radius:20px; position:relative; overflow:hidden; border: 1px solid #333;">
+        
+        <div onclick="closeModal()" style="position:absolute; top:15px; right:15px; cursor:pointer; width: 30px; height: 30px; background: rgba(255,255,255,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; color:#fff; z-index:100; font-size: 20px;">&times;</div>
+        
+        <div id="yookassa-widget" style="width:100%; height:600px; background-color: #161616;"></div>
     </div>
 </div>
 {% endblock %}
@@ -60,12 +62,25 @@
 
             document.getElementById('payment-modal').style.display = 'flex';
             
+            // --- НАСТРОЙКА ЦВЕТОВ ВИДЖЕТА ---
             checkout = new window.YooMoneyCheckoutWidget({
                 confirmation_token: data.confirmation_token,
                 return_url: window.location.href,
-                customization: { colors: { control_primary: '#000000', background: '#FFFFFF' } },
+                customization: {
+                    // Настраиваем темную тему под наш сайт
+                    colors: {
+                        control_primary: '#27ae60',         // Цвет главной кнопки (наш зеленый)
+                        control_primary_content: '#FFFFFF', // Текст на кнопке
+                        background: '#161616',              // Фон виджета (наш темный)
+                        border: '#333333',                  // Цвет рамок внутри виджета
+                        text: '#FFFFFF',                    // Цвет текста
+                        control_secondary: '#2a2a2a'        // Цвет вторичных кнопок
+                    },
+                    modal: false // Мы управляем модальным окном сами через HTML
+                },
                 error_callback: function(error) { console.log(error); closeModal(); }
             });
+            
             checkout.render('yookassa-widget');
             
             checkout.on('success', () => { 
