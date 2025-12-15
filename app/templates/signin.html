@@ -59,8 +59,29 @@
         .social-divider { color: #555; font-size: 13px; margin: 25px 0; display: flex; align-items: center; }
         .social-divider::before, .social-divider::after { content: ""; flex: 1; border-bottom: 1px solid #333; margin: 0 10px; }
         .social-row { display: flex; justify-content: center; gap: 15px; margin-bottom: 30px; }
-        .social-icon { background-color: #2a2a2a; width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+        
+        /* Стиль для иконок соцсетей */
+        .social-icon { 
+            background-color: #2a2a2a; 
+            width: 56px; height: 56px; 
+            border-radius: 50%; 
+            display: flex; align-items: center; justify-content: center; 
+            transition: 0.2s; 
+            position: relative; /* Важно для наложения Telegram */
+            overflow: hidden;
+        }
         .social-icon:hover { background-color: #333; transform: translateY(-2px); }
+
+        /* СПЕЦИАЛЬНЫЙ СТИЛЬ ДЛЯ TELEGRAM HACK */
+        .telegram-widget-wrapper {
+            position: absolute;
+            top: -10px; 
+            left: -20px;
+            opacity: 0.0001; /* Делаем виджет невидимым, но кликабельным */
+            transform: scale(2); /* Увеличиваем его, чтобы он перекрывал весь круг */
+            z-index: 10;
+            cursor: pointer;
+        }
 
         /* ФОРМА EMAIL (Скрытая по умолчанию) */
         #email-section { display: none; text-align: left; animation: fadeIn 0.3s ease; }
@@ -108,15 +129,19 @@
                 <svg xmlns="http://www.w3.org/2000/svg" height="28" width="28" viewBox="0 0 48 48"><path d="M0 23.04C0 12.1788 0 6.74826 3.37413 3.37413C6.74826 0 12.1788 0 23.04 0H24.96C35.8212 0 41.2517 0 44.6259 3.37413C48 6.74826 48 12.1788 48 23.04V24.96C48 35.8212 48 41.2517 44.6259 44.6259C41.2517 48 35.8212 48 24.96 48H23.04C12.1788 48 6.74826 48 3.37413 44.6259C0 41.2517 0 35.8212 0 24.96V23.04Z" fill="#0077FF"></path><path d="M25.54 34.5801C14.6 34.5801 8.3601 27.0801 8.1001 14.6001H13.5801C13.7601 23.7601 17.8 27.6401 21 28.4401V14.6001H26.1602V22.5001C29.3202 22.1601 32.6398 18.5601 33.7598 14.6001H38.9199C38.0599 19.4801 34.4599 23.0801 31.8999 24.5601C34.4599 25.7601 38.5601 28.9001 40.1201 34.5801H34.4399C33.2199 30.7801 30.1802 27.8401 26.1602 27.4401V34.5801H25.54Z" fill="#ffffff"></path></svg>
             </a>
             
-            <div class="social-icon" style="background-color: transparent; width: auto; height: auto; border: none; overflow: hidden; display: flex; align-items: center;">
-                <script async src="https://telegram.org/js/telegram-widget.js?22" 
-                        data-telegram-login="neirosetim_bot" 
-                        data-size="large" 
-                        data-userpic="false" 
-                        data-radius="50" 
-                        data-auth-url="/callback/telegram" 
-                        data-request-access="write">
-                </script>
+            <div class="social-icon" style="background-color: #2AABEE;">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" style="z-index: 1;"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.161c-.18 1.897-.962 6.502-1.359 8.627-.168.9-.5 1.201-.82 1.23-.697.064-1.226-.461-1.901-.903-1.056-.692-1.653-1.123-2.678-1.799-1.185-.781-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.139-5.062 3.345-.479.329-.913.489-1.302.481-.428-.008-1.252-.241-1.865-.44-.751-.244-1.349-.374-1.297-.789.027-.216.324-.437.893-.663 3.498-1.524 5.831-2.529 6.998-3.014 3.333-1.386 4.025-1.627 4.477-1.635.1 0 .32.02.47.14.12.1.17.28.17.43z"/></svg>
+                
+                <div class="telegram-widget-wrapper">
+                    <script async src="https://telegram.org/js/telegram-widget.js?22" 
+                            data-telegram-login="neirosetim_bot" 
+                            data-size="large" 
+                            data-userpic="false" 
+                            data-radius="0" 
+                            data-auth-url="/callback/telegram" 
+                            data-request-access="write">
+                    </script>
+                </div>
             </div>
         </div>
 
