@@ -28,7 +28,7 @@ ul { list-style: none; padding: 0; margin: 0; }
 /* --- HEADER --- */
 .app-header {
     height: var(--header-height);
-    background-color: rgba(22, 22, 22, 0.8); /* Полупрозрачность */
+    background-color: rgba(22, 22, 22, 0.8);
     backdrop-filter: blur(10px);
     border-bottom: 1px solid #222;
     display: flex;
@@ -133,30 +133,7 @@ ul { list-style: none; padding: 0; margin: 0; }
 .card-title { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
 .card-desc { font-size: 13px; color: var(--text-muted); line-height: 1.4; }
 
-/* Градиентные подложки для карточек (эмуляция картинок) */
 .bg-gradient-1 { background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0) 100%); }
-
-/* --- PROFILE PAGE STYLES --- */
-.profile-wrapper { max-width: 600px; margin: 0 auto; }
-.payment-card {
-    background-color: var(--card-bg);
-    border-radius: var(--border-radius);
-    padding: 40px;
-    border: 1px solid #222;
-    text-align: center;
-}
-.big-balance { font-size: 48px; font-weight: 700; margin: 20px 0; }
-.input-row { display: flex; gap: 10px; justify-content: center; margin-top: 30px; }
-.pay-input {
-    background: #000; border: 1px solid #333; color: white;
-    padding: 15px; border-radius: 12px; font-size: 18px; width: 120px; text-align: center;
-}
-.pay-btn {
-    background: var(--text-main); color: black; border: none;
-    padding: 15px 30px; border-radius: 12px; font-weight: 700; cursor: pointer;
-    transition: opacity 0.2s;
-}
-.pay-btn:hover { opacity: 0.9; }
 
 /* --- FOOTER --- */
 .app-footer {
@@ -167,3 +144,137 @@ ul { list-style: none; padding: 0; margin: 0; }
     border-top: 1px solid #1a1a1a;
 }
 .app-footer a { border-bottom: 1px dotted #444; }
+
+/* --- СТИЛИ ДЛЯ ПРОФИЛЯ (Кошелек) --- */
+.profile-wrapper { 
+    max-width: 600px; 
+    margin: 0 auto; 
+}
+
+.payment-card {
+    background-color: var(--card-bg);
+    border-radius: var(--border-radius);
+    padding: 40px;
+    border: 1px solid #222;
+    text-align: center;
+}
+
+.big-balance { 
+    font-size: 48px; 
+    font-weight: 700; 
+    margin: 20px 0; 
+    color: var(--text-main);
+}
+
+.input-row { 
+    display: flex; 
+    gap: 10px; 
+    justify-content: center; 
+    margin-top: 30px; 
+}
+
+.pay-input {
+    background: #000; 
+    border: 1px solid #333; 
+    color: white;
+    padding: 15px; 
+    border-radius: 12px; 
+    font-size: 18px; 
+    width: 120px; 
+    text-align: center;
+    outline: none; 
+    transition: border-color 0.2s;
+}
+
+.pay-input:focus { 
+    border-color: var(--green); 
+}
+
+.pay-btn {
+    background: var(--text-main); 
+    color: black; 
+    border: none;
+    padding: 15px 30px; 
+    border-radius: 12px; 
+    font-weight: 700; 
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.pay-btn:hover { 
+    opacity: 0.9; 
+}
+
+/* --- МОДАЛЬНОЕ ОКНО ОПЛАТЫ --- */
+.modal-overlay {
+    display: none; /* Скрыто по умолчанию */
+    position: fixed;
+    top: 0; 
+    left: 0;
+    width: 100%; 
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85); /* Темный фон */
+    backdrop-filter: blur(5px);
+    z-index: 10000; /* ОЧЕНЬ ВАЖНО: Выше хедера */
+    
+    /* Центрирование Flexbox */
+    display: flex; /* Сразу ставим flex, но скрываем через JS (display:none) */
+    align-items: center;
+    justify-content: center;
+    
+    /* Отступ от краев экрана мобильного */
+    padding: 20px; 
+    box-sizing: border-box;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.modal-overlay.active {
+    opacity: 1;
+    pointer-events: all;
+}
+
+.modal-card {
+    width: 100%;
+    max-width: 450px;
+    background: #161616; /* Цвет фона карточки */
+    border-radius: 24px;
+    border: 1px solid #333;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    display: flex;
+    flex-direction: column;
+    /* Чтобы на маленьких экранах влезало */
+    max-height: 90vh;
+}
+
+.modal-close {
+    position: absolute;
+    top: 15px; 
+    right: 15px;
+    width: 32px; 
+    height: 32px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 50%;
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    cursor: pointer;
+    color: #fff;
+    font-size: 20px;
+    z-index: 100;
+    transition: background 0.2s;
+}
+
+.modal-close:hover { 
+    background: rgba(255,255,255,0.2); 
+}
+
+.widget-container {
+    width: 100%;
+    height: 600px;
+    background-color: #161616;
+    overflow-y: auto; /* Прокрутка внутри виджета, если не влезает */
+}
