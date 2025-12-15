@@ -336,33 +336,49 @@ def update_session_cookie(response, data, prefix, db):
 
 # --- МАРШРУТЫ ---
 
+# Вспомогательная функция для получения текущего юзера
+def get_current_user(request: Request, db: Session):
+    session_id = request.cookies.get("session_id")
+    if not session_id: return None
+    sess = db.query(UserSession).filter_by(session_id=session_id).first()
+    if not sess: return None
+    wallet = db.query(UserWallet).filter_by(casdoor_id=sess.token).first()
+    return wallet
+
 @app.get("/")
 def home(request: Request, db: Session = Depends(get_db)):
-    session_id = request.cookies.get("session_id")
-    token = None
-    if session_id:
-        db_session = db.query(UserSession).filter(UserSession.session_id == session_id).first()
-        if db_session:
-            token = db_session.token
-
-    if not token:
+    user = get_current_user(request, db)
+    if not user:
         return RedirectResponse("/login")
     
-    wallet = db.query(UserWallet).filter(UserWallet.casdoor_id == token).first()
-    
-    if not wallet:
-        return RedirectResponse("/logout")
-
-    return templates.TemplateResponse("dashboard.html", {
+    # Рендерим ГЛАВНУЮ страницу (плитки)
+    return templates.TemplateResponse("index.html", {
         "request": request,
-        "name": wallet.name,
-        "email": wallet.email,
-        "avatar": wallet.avatar,
-        "balance": wallet.balance
+        "name": user.name,
+        "email": user.email,
+        "balance": int(user.balance), # Округляем для красоты
+        "avatar": user.avatar
+    })
+
+@app.get("/profile")
+def profile(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user:
+        return RedirectResponse("/login")
+    
+    # Рендерим ПРОФИЛЬ (кошелек)
+    return templates.TemplateResponse("profile.html", {
+        "request": request,
+        "name": user.name,
+        "email": user.email,
+        "balance": user.balance, # Тут можно оставить float
+        "avatar": user.avatar
     })
 
 @app.get("/login")
 def login_page(request: Request):
+    # Если юзер уже залогинен, кидаем на главную
+    # (опционально, можно не делать)
     return templates.TemplateResponse("signin.html", {"request": request})
 
 # === АВТОРИЗАЦИЯ ПО EMAIL (МАРШРУТЫ) ===

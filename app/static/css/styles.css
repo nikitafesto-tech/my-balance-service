@@ -1,62 +1,169 @@
+/* --- Глобальные настройки --- */
+:root {
+    --bg-color: #0d0d0d;
+    --card-bg: #161616;
+    --card-hover: #1e1e1e;
+    --text-main: #ffffff;
+    --text-muted: #888888;
+    --accent: #ffffff;
+    --green: #27ae60;
+    --header-height: 70px;
+    --border-radius: 20px;
+}
+
 body {
     margin: 0;
-    font-family: sans-serif;
-    background: #f5f5f5;
-}
-
-.container-center {
+    padding: 0;
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh;
     display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
+    flex-direction: column;
 }
 
-.card {
-    background: #fff;
-    padding: 40px;
-    border-radius: 12px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-    text-align: center;
-    max-width: 800px;
-    margin: 40px auto;
-}
+a { text-decoration: none; color: inherit; }
+ul { list-style: none; padding: 0; margin: 0; }
 
-.btn-black {
-    padding: 15px 30px;
-    background: #000;
-    color: #fff;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 16px;
-}
-
-.header {
-    background: #fff;
-    padding: 10px 20px;
+/* --- HEADER --- */
+.app-header {
+    height: var(--header-height);
+    background-color: rgba(22, 22, 22, 0.8); /* Полупрозрачность */
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid #222;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 0 40px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
 }
 
-.profile-widget {
+.logo {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    cursor: pointer;
     display: flex;
     align-items: center;
     gap: 10px;
-    cursor: pointer;
 }
 
-.balance-title {
-    color: #888;
+.user-menu {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.balance-badge {
+    background: #222;
+    padding: 8px 16px;
+    border-radius: 12px;
     font-size: 14px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+    font-weight: 600;
+    color: var(--green);
+    border: 1px solid #333;
 }
 
-.balance-amount {
-    font-size: 64px;
-    font-weight: bold;
-    color: #333;
-    margin: 10px 0;
+.profile-trigger {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    padding: 5px 10px;
+    border-radius: 12px;
+    transition: background 0.2s;
 }
+
+.profile-trigger:hover { background-color: #222; }
+
+.avatar-circle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background-color: #333;
+    object-fit: cover;
+}
+
+.user-name { font-size: 14px; font-weight: 600; }
+
+/* --- MAIN CONTENT --- */
+.main-container {
+    flex: 1;
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 40px 20px;
+}
+
+/* --- GRID LAYOUT (Для Главной) --- */
+.hero-section { margin-bottom: 40px; }
+.hero-title { font-size: 32px; font-weight: 700; margin-bottom: 10px; }
+.hero-subtitle { color: var(--text-muted); max-width: 600px; line-height: 1.5; }
+
+.services-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 20px;
+}
+
+.service-card {
+    background-color: var(--card-bg);
+    border-radius: var(--border-radius);
+    padding: 25px;
+    transition: transform 0.2s, background 0.2s;
+    border: 1px solid #222;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 180px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.service-card:hover {
+    background-color: var(--card-hover);
+    transform: translateY(-5px);
+    border-color: #333;
+}
+
+.card-icon { font-size: 24px; margin-bottom: 15px; }
+.card-title { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+.card-desc { font-size: 13px; color: var(--text-muted); line-height: 1.4; }
+
+/* Градиентные подложки для карточек (эмуляция картинок) */
+.bg-gradient-1 { background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0) 100%); }
+
+/* --- PROFILE PAGE STYLES --- */
+.profile-wrapper { max-width: 600px; margin: 0 auto; }
+.payment-card {
+    background-color: var(--card-bg);
+    border-radius: var(--border-radius);
+    padding: 40px;
+    border: 1px solid #222;
+    text-align: center;
+}
+.big-balance { font-size: 48px; font-weight: 700; margin: 20px 0; }
+.input-row { display: flex; gap: 10px; justify-content: center; margin-top: 30px; }
+.pay-input {
+    background: #000; border: 1px solid #333; color: white;
+    padding: 15px; border-radius: 12px; font-size: 18px; width: 120px; text-align: center;
+}
+.pay-btn {
+    background: var(--text-main); color: black; border: none;
+    padding: 15px 30px; border-radius: 12px; font-weight: 700; cursor: pointer;
+    transition: opacity 0.2s;
+}
+.pay-btn:hover { opacity: 0.9; }
+
+/* --- FOOTER --- */
+.app-footer {
+    text-align: center;
+    padding: 30px;
+    color: #444;
+    font-size: 12px;
+    border-top: 1px solid #1a1a1a;
+}
+.app-footer a { border-bottom: 1px dotted #444; }

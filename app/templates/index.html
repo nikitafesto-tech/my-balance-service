@@ -1,19 +1,49 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <title>Вход в сервис</title>
-    <link rel="stylesheet" href="/static/css/styles.css">
-</head>
-<body>
-    <div class="container-center">
-        <div style="text-align: center;">
-            <h1>Сервис Баланса</h1>
-            <p>Доступ закрыт. Пожалуйста, войдите.</p>
-            <a href="/login">
-                <button class="btn-black">ВОЙТИ</button>
-            </a>
+{% extends "base.html" %}
+
+{% block title %}Главная — Neirosetim{% endblock %}
+
+{% block content %}
+<div class="hero-section">
+    <div class="hero-title">Добро пожаловать в Neirosetim</div>
+    <div class="hero-subtitle">
+        Всё, что нужно знать о сервисе, теперь можно посмотреть в одном месте.
+        Выберите инструмент для начала работы.
+    </div>
+</div>
+
+<div class="services-grid">
+    
+    <div class="service-card bg-gradient-1" onclick="alert('Переход к Suno...')">
+        <div>
+            <div class="card-icon">🎵</div>
+            <div class="card-title">Suno</div>
+            <div class="card-desc">Создавай музыку с помощью искусственного интеллекта.</div>
         </div>
     </div>
-</body>
-</html>
+
+    <div class="service-card bg-gradient-1" onclick="alert('Переход к Claude...')">
+        <div>
+            <div class="card-icon">🧠</div>
+            <div class="card-title">Claude</div>
+            <div class="card-desc">Новейшая языковая модель от Anthropic. Opus-4.5.</div>
+        </div>
+    </div>
+
+    <div class="service-card bg-gradient-1" onclick="alert('Переход к Sora...')">
+        <div>
+            <div class="card-icon">🎬</div>
+            <div class="card-title">Sora</div>
+            <div class="card-desc">Генерация видео кинематографического качества.</div>
+        </div>
+    </div>
+
+    <div class="service-card bg-gradient-1" onclick="alert('Переход к OpenAI...')">
+        <div>
+            <div class="card-icon">🤖</div>
+            <div class="card-title">OpenAI</div>
+            <div class="card-desc">GPT-5.2 — Самая продвинутая модель с поддержкой зрения.</div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

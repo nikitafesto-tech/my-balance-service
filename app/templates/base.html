@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MyService{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <script src="https://yookassa.ru/checkout-widget/v1/checkout-widget.js"></script>
+</head>
+<body>
+
+    <header class="app-header">
+        <a href="/" class="logo">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M12 2L2 7l10 5 10-5-10-5zm0 9l2.5-1.25L12 8.5l-2.5 1.25L12 11zm0 2.5l-5-2.5-5 2.5L12 22l10-8.5-5-2.5-5 2.5z"/></svg>
+            Neirosetim
+        </a>
+
+        <div class="user-menu">
+            <div class="balance-badge">{{ balance }} ₽</div>
+
+            <a href="/profile" class="profile-trigger">
+                <div class="user-info">
+                    <div class="user-name">{{ name }}</div>
+                </div>
+                {% if avatar %}
+                    <img src="{{ avatar }}" class="avatar-circle" alt="Avatar">
+                {% else %}
+                    <div class="avatar-circle" style="display:flex;align-items:center;justify-content:center;">👤</div>
+                {% endif %}
+            </a>
+        </div>
+    </header>
+
+    <main class="main-container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="app-footer">
+        <a href="#">Политика конфиденциальности</a> &copy; 2025 Neirosetim
+    </footer>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>
