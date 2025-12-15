@@ -3,6 +3,98 @@
 {% block title %}Профиль — Neirosetim{% endblock %}
 
 {% block content %}
+
+<style>
+    .profile-wrapper { max-width: 600px; margin: 0 auto; }
+    
+    .payment-card {
+        background-color: var(--card-bg);
+        border-radius: var(--border-radius);
+        padding: 40px;
+        border: 1px solid #222;
+        text-align: center;
+    }
+
+    .big-balance { font-size: 48px; font-weight: 700; margin: 20px 0; }
+    
+    .input-row { display: flex; gap: 10px; justify-content: center; margin-top: 30px; }
+    
+    .pay-input {
+        background: #000; border: 1px solid #333; color: white;
+        padding: 15px; border-radius: 12px; font-size: 18px; width: 120px; text-align: center;
+        outline: none; transition: border-color 0.2s;
+    }
+    .pay-input:focus { border-color: var(--green); }
+    
+    .pay-btn {
+        background: var(--text-main); color: black; border: none;
+        padding: 15px 30px; border-radius: 12px; font-weight: 700; cursor: pointer;
+        transition: opacity 0.2s;
+    }
+    .pay-btn:hover { opacity: 0.9; }
+
+    /* --- СТИЛИ МОДАЛЬНОГО ОКНА --- */
+    .modal-overlay {
+        display: none; /* Скрыто по умолчанию */
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: rgba(0,0,0,0.85); /* Чуть темнее фон */
+        backdrop-filter: blur(8px);
+        z-index: 9999;
+        
+        /* Центрирование и отступы от краев */
+        align-items: center;
+        justify-content: center;
+        padding: 20px; /* ВАЖНО: Отступ от краев экрана */
+        box-sizing: border-box;
+    }
+
+    .modal-card {
+        width: 100%;
+        max-width: 450px; /* Чуть уже, как мобильное приложение */
+        background: #161616;
+        border-radius: 24px;
+        border: 1px solid #333;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        
+        /* Адаптив по высоте для маленьких экранов */
+        max-height: 90vh; 
+        display: flex;
+        flex-direction: column;
+    }
+
+    .modal-close {
+        position: absolute;
+        top: 15px; right: 15px;
+        width: 32px; height: 32px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer;
+        color: #fff;
+        font-size: 20px;
+        z-index: 100;
+        transition: background 0.2s;
+    }
+    .modal-close:hover { background: rgba(255,255,255,0.2); }
+
+    /* Контейнер виджета с прокруткой на случай маленьких экранов */
+    .widget-container {
+        width: 100%;
+        height: 600px; /* Высота по умолчанию */
+        background-color: #161616;
+        overflow-y: auto; /* Прокрутка, если не влезает */
+        -webkit-overflow-scrolling: touch;
+    }
+
+    @media (max-height: 700px) {
+        .widget-container { height: 500px; }
+    }
+</style>
+
 <div class="profile-wrapper">
     <h2 style="margin-bottom: 20px;">Мой кошелек</h2>
     
@@ -24,12 +116,11 @@
     </div>
 </div>
 
-<div id="payment-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index:9999; align-items:center; justify-content:center;">
-    <div style="width:100%; max-width:500px; border-radius:20px; position:relative; overflow:hidden; border: 1px solid #333;">
+<div id="payment-modal" class="modal-overlay">
+    <div class="modal-card">
+        <div onclick="closeModal()" class="modal-close">&times;</div>
         
-        <div onclick="closeModal()" style="position:absolute; top:15px; right:15px; cursor:pointer; width: 30px; height: 30px; background: rgba(255,255,255,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; color:#fff; z-index:100; font-size: 20px;">&times;</div>
-        
-        <div id="yookassa-widget" style="width:100%; height:600px; background-color: #161616;"></div>
+        <div id="yookassa-widget" class="widget-container"></div>
     </div>
 </div>
 {% endblock %}
@@ -47,6 +138,7 @@
         const amount = document.getElementById('amount-input').value;
         const btn = document.getElementById('pay-btn');
         const errorMsg = document.getElementById('error-msg');
+        const modal = document.getElementById('payment-modal');
         
         if (amount < 10) { alert("Минимум 10р"); return; }
         
@@ -60,23 +152,22 @@
             const data = await res.json();
             if (data.error) throw new Error(data.error);
 
-            document.getElementById('payment-modal').style.display = 'flex';
+            // Показываем модальное окно через Flex
+            modal.style.display = 'flex';
             
-            // --- НАСТРОЙКА ЦВЕТОВ ВИДЖЕТА ---
             checkout = new window.YooMoneyCheckoutWidget({
                 confirmation_token: data.confirmation_token,
                 return_url: window.location.href,
                 customization: {
-                    // Настраиваем темную тему под наш сайт
                     colors: {
-                        control_primary: '#27ae60',         // Цвет главной кнопки (наш зеленый)
-                        control_primary_content: '#FFFFFF', // Текст на кнопке
-                        background: '#161616',              // Фон виджета (наш темный)
-                        border: '#333333',                  // Цвет рамок внутри виджета
-                        text: '#FFFFFF',                    // Цвет текста
-                        control_secondary: '#2a2a2a'        // Цвет вторичных кнопок
+                        control_primary: '#27ae60',
+                        control_primary_content: '#FFFFFF',
+                        background: '#161616',
+                        border: '#333333',
+                        text: '#FFFFFF',
+                        control_secondary: '#2a2a2a'
                     },
-                    modal: false // Мы управляем модальным окном сами через HTML
+                    modal: false
                 },
                 error_callback: function(error) { console.log(error); closeModal(); }
             });
