@@ -517,38 +517,32 @@ async def callback_vk(code: str, request: Request, db: Session = Depends(get_db)
 
 # --- TELEGRAM ---
 @app.get("/callback/telegram")
-async def callback_telegram(
-    id: str, 
-    first_name: str, 
-    username: str = None, 
-    photo_url: str = None, 
-    auth_date: str = None, 
-    hash: str = None, 
-    request: Request = None,
-    db: Session = Depends(get_db)
-):
-    data = {
-        "id": id,
-        "first_name": first_name,
-        "username": username,
-        "photo_url": photo_url,
-        "auth_date": auth_date,
-        "hash": hash
-    }
+async def callback_telegram(request: Request, db: Session = Depends(get_db)):
+    # 1. Получаем все параметры, которые прислал Telegram, в виде словаря
+    # Это решает проблему с last_name и любыми другими полями
+    data = dict(request.query_params)
     
+    # 2. Проверяем хеш
     if not check_telegram_authorization(data, TELEGRAM_BOT_TOKEN):
-        logger.error("Telegram auth failed: Invalid hash")
+        logger.error(f"Telegram auth failed. Data: {data}")
         return JSONResponse({"error": "Invalid Telegram hash"}, status_code=400)
         
-    # Формируем данные пользователя
-    tg_username = username or f"user_{id}"
-    full_name = first_name or tg_username
+    # 3. Формируем данные пользователя для нашей базы
+    # Берем то, что есть, или ставим пустые строки
+    tg_id = data.get("id")
+    first_name = data.get("first_name", "")
+    last_name = data.get("last_name", "")
+    username = data.get("username", "")
+    photo_url = data.get("photo_url", "")
+    
+    # Собираем полное имя
+    full_name = f"{first_name} {last_name}".strip() or f"user_{tg_id}"
     
     clean_data = {
-        "id": id,
+        "id": tg_id,
         "name": full_name,
-        "avatar": photo_url or "",
-        "email": f"telegram_{id}@noemail.com", # У Telegram нет email в API
+        "avatar": photo_url,
+        "email": f"telegram_{tg_id}@noemail.com", # Email-заглушка
         "phone": "" 
     }
     
