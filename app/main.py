@@ -19,6 +19,7 @@ import smtplib
 import random
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import hmac # <--- ДОБАВЛЕНО ДЛЯ TELEGRAM
 
 # === ЮKassa ===
 from yookassa import Configuration, Payment as YooPayment
@@ -72,6 +73,9 @@ GOOGLE_REDIRECT_URI = f"{SITE_URL}/callback/google-direct"
 YANDEX_CLIENT_ID = os.getenv("YANDEX_CLIENT_ID")
 YANDEX_CLIENT_SECRET = os.getenv("YANDEX_CLIENT_SECRET")
 YANDEX_REDIRECT_URI = f"{SITE_URL}/callback/yandex-direct"
+
+# <--- TELEGRAM TOKEN --->
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 CASDOOR_CLIENT_ID = os.getenv("CASDOOR_CLIENT_ID")
 CASDOOR_CLIENT_SECRET = os.getenv("CASDOOR_CLIENT_SECRET")
@@ -158,6 +162,29 @@ def generate_pkce():
     m.update(verifier.encode('ascii'))
     challenge = base64.urlsafe_b64encode(m.digest()).decode('ascii').rstrip('=')
     return verifier, challenge
+
+# <--- TELEGRAM CHECK FUNCTION --->
+def check_telegram_authorization(data: dict, bot_token: str) -> bool:
+    if not bot_token:
+        return False
+    
+    check_hash = data.get('hash')
+    if not check_hash:
+        return False
+    
+    # Сортируем параметры по алфавиту и собираем строку
+    data_check_arr = []
+    for key, value in data.items():
+        if key != 'hash':
+            data_check_arr.append(f'{key}={value}')
+    data_check_arr.sort()
+    data_check_string = '\n'.join(data_check_arr)
+    
+    # Вычисляем HMAC
+    secret_key = hashlib.sha256(bot_token.encode()).digest()
+    hash_calc = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
+    
+    return hash_calc == check_hash
 
 # Функция отправки письма (ИСПРАВЛЕННАЯ)
 def send_email_via_smtp(to_email, code):
@@ -487,6 +514,46 @@ async def callback_vk(code: str, request: Request, db: Session = Depends(get_db)
     
     await finalize_login(clean_data, "vk", db)
     return update_session_cookie(RedirectResponse("/"), clean_data, "vk", db)
+
+# --- TELEGRAM ---
+@app.get("/callback/telegram")
+async def callback_telegram(
+    id: str, 
+    first_name: str, 
+    username: str = None, 
+    photo_url: str = None, 
+    auth_date: str = None, 
+    hash: str = None, 
+    request: Request = None,
+    db: Session = Depends(get_db)
+):
+    data = {
+        "id": id,
+        "first_name": first_name,
+        "username": username,
+        "photo_url": photo_url,
+        "auth_date": auth_date,
+        "hash": hash
+    }
+    
+    if not check_telegram_authorization(data, TELEGRAM_BOT_TOKEN):
+        logger.error("Telegram auth failed: Invalid hash")
+        return JSONResponse({"error": "Invalid Telegram hash"}, status_code=400)
+        
+    # Формируем данные пользователя
+    tg_username = username or f"user_{id}"
+    full_name = first_name or tg_username
+    
+    clean_data = {
+        "id": id,
+        "name": full_name,
+        "avatar": photo_url or "",
+        "email": f"telegram_{id}@noemail.com", # У Telegram нет email в API
+        "phone": "" 
+    }
+    
+    await finalize_login(clean_data, "telegram", db)
+    return update_session_cookie(RedirectResponse("/"), clean_data, "telegram", db)
 
 # --- GOOGLE/YANDEX (Без изменений) ---
 @app.get("/login/google-direct")
