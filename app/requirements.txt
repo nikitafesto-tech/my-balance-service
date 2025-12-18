@@ -7,3 +7,5 @@ sqlalchemy
 jinja2
 httpx
 yookassa
+python-multipart
+boto3
