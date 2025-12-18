@@ -319,6 +319,39 @@ async def create_new_chat(request: Request, data: dict = Body(...), db: Session 
         {"role": "assistant", "content": bot_text}
     ]}
 
+@app.post("/api/chats/{chat_id}/message")
+async def chat_reply(chat_id: int, request: Request, data: dict = Body(...), db: Session = Depends(get_db)):
+    """Отправка сообщения в существующий чат"""
+    user = get_current_user(request, db)
+    if not user: raise HTTPException(401)
+
+    chat = db.query(Chat).filter_by(id=chat_id, user_casdoor_id=user.casdoor_id).first()
+    if not chat: raise HTTPException(404, "Chat not found")
+
+    user_text = data.get("message")
+    
+    # 1. Сохраняем сообщение юзера
+    user_msg = Message(chat_id=chat.id, role="user", content=user_text)
+    db.add(user_msg)
+    
+    # 2. Обновляем дату чата (чтобы он поднялся вверх в списке)
+    chat.updated_at = datetime.utcnow()
+    
+    # 3. Эмуляция ответа (здесь потом будет вызов AI)
+    bot_text = f"Я услышал: {user_text} (Контекст сохранен)"
+    bot_msg = Message(chat_id=chat.id, role="assistant", content=bot_text)
+    db.add(bot_msg)
+    
+    db.commit()
+
+    return {
+        "chat_id": chat.id,
+        "messages": [
+            {"role": "user", "content": user_text},
+            {"role": "assistant", "content": bot_text}
+        ]
+    }
+
 @app.post("/api/upload")
 async def upload_file(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db)):
     """Загрузка в S3"""

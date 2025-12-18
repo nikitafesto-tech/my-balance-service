@@ -21,12 +21,11 @@
             <button @click="startNewChat()" class="w-full flex items-center gap-3 px-4 py-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors border border-white/5 text-sm font-medium">
                 <i class="ph ph-plus text-lg"></i>
                 Новый чат
-                <span class="ml-auto bg-white/10 text-xs px-2 py-0.5 rounded text-gray-400">Ctrl+N</span>
             </button>
         </div>
 
         <div class="flex-1 overflow-y-auto px-2 space-y-1">
-            <div class="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">История</div>
+            <div class="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">Ваши чаты</div>
             
             <template x-for="chat in chatHistory" :key="chat.id">
                 <button 
@@ -68,33 +67,24 @@
             <button @click="sidebarOpen = true" class="p-2 text-gray-400 hover:text-white">
                 <i class="ph ph-list text-2xl"></i>
             </button>
-            <span class="font-semibold" x-text="currentModelName"></span>
-            <div class="w-8"></div> </header>
+            <span class="font-semibold text-sm">Neirosetim AI</span>
+            <div class="w-8"></div>
+        </header>
 
         <div class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6" id="chat-container">
-            <div x-show="messages.length === 0" class="h-full flex flex-col items-center justify-center text-center">
-                <div class="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mb-6 animate-bounce">
+            <div x-show="messages.length === 0 && !activeChatId" class="h-full flex flex-col items-center justify-center text-center">
+                <div class="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mb-6">
                     <i class="ph ph-magic-wand text-3xl text-white"></i>
                 </div>
                 <h2 class="text-2xl font-bold mb-2">Чем могу помочь?</h2>
                 <div class="text-gray-500 max-w-md mb-8">
                     Выбрана модель: <span class="text-green font-bold" x-text="currentModelName"></span>
                 </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl w-full">
-                    <button @click="userInput='Напиши код на Python'; sendMessage()" class="p-4 border border-white/10 rounded-xl hover:bg-white/5 text-left transition">
-                        <div class="text-sm font-medium text-white">Код на Python</div>
-                        <div class="text-xs text-gray-500 mt-1">Пример функции</div>
-                    </button>
-                    <button @click="userInput='Сгенерируй картинку кота киберпанк'; sendMessage()" class="p-4 border border-white/10 rounded-xl hover:bg-white/5 text-left transition">
-                        <div class="text-sm font-medium text-white">Генерация картинки</div>
-                        <div class="text-xs text-gray-500 mt-1">Через Flux.1</div>
-                    </button>
-                </div>
             </div>
 
             <template x-for="msg in messages" :key="msg.id">
                 <div class="flex gap-4 max-w-4xl mx-auto" :class="msg.role === 'user' ? 'justify-end' : 'justify-start'">
+                    
                     <div x-show="msg.role === 'assistant'" class="w-8 h-8 rounded-full bg-green flex-shrink-0 flex items-center justify-center mt-1">
                         <i class="ph ph-robot text-white text-lg"></i>
                     </div>
@@ -102,7 +92,18 @@
                     <div class="flex flex-col max-w-[85%]" :class="msg.role === 'user' ? 'items-end' : 'items-start'">
                         <div class="px-5 py-3.5 rounded-2xl text-[15px] leading-relaxed shadow-sm"
                              :class="msg.role === 'user' ? 'bg-white/10 text-white rounded-tr-sm' : 'bg-transparent text-gray-100 pl-0'">
+                            
                             <div x-html="parseMarkdown(msg.content)"></div>
+                            
+                            <template x-if="msg.image_url">
+                                <img :src="msg.image_url" class="mt-3 rounded-lg max-w-full border border-white/10">
+                            </template>
+                             <template x-if="msg.attachment_url">
+                                <div class="mt-2 text-xs text-gray-400 flex items-center gap-1">
+                                    <i class="ph ph-file"></i> Файл
+                                </div>
+                            </template>
+
                         </div>
                     </div>
                 </div>
@@ -119,7 +120,8 @@
                 </div>
             </div>
             
-            <div class="h-32"></div> </div>
+            <div class="h-32"></div>
+        </div>
 
         <div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-dark via-dark to-transparent pt-10 pb-6 px-4">
             <div class="max-w-3xl mx-auto relative">
@@ -138,7 +140,6 @@
                     ></textarea>
 
                     <div class="flex items-center justify-between px-3 pb-3 pt-1">
-                        
                         <div class="flex items-center gap-2">
                             
                             <div class="relative" x-data="{ open: false }">
@@ -147,54 +148,19 @@
                                     <span class="font-semibold" x-text="currentModelName">GPT-4o</span>
                                     <i class="ph ph-caret-down text-gray-500"></i>
                                 </button>
-                                
                                 <div x-show="open" @click.outside="open = false" x-transition class="absolute bottom-full left-0 mb-2 w-64 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden">
                                     <div class="p-2 space-y-1">
-                                        <div class="px-2 py-1 text-[10px] text-gray-500 font-bold uppercase tracking-wider">Текст & Код</div>
-                                        <button @click="setModel('gpt-4o', 'GPT-4o'); open=false" class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-sm flex items-center gap-2">
-                                            <i class="ph ph-brain text-green"></i> GPT-4o
-                                        </button>
-                                        <button @click="setModel('claude-3.5', 'Claude 3.5'); open=false" class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-sm flex items-center gap-2">
-                                            <i class="ph ph-robot text-orange-400"></i> Claude 3.5 Sonnet
-                                        </button>
-                                        <div class="border-t border-white/5 my-1"></div>
-                                        <div class="px-2 py-1 text-[10px] text-gray-500 font-bold uppercase tracking-wider">Генерация</div>
-                                        <button @click="setModel('recraft', 'Recraft V3'); open=false" class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-sm flex items-center gap-2">
-                                            <i class="ph ph-image text-blue-400"></i> Recraft V3
-                                        </button>
-                                        <button @click="setModel('suno', 'Suno AI'); open=false" class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-sm flex items-center gap-2">
-                                            <i class="ph ph-music-notes text-purple-400"></i> Suno AI
-                                        </button>
+                                        <button @click="setModel('gpt-4o', 'GPT-4o'); open=false" class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-sm flex items-center gap-2"><i class="ph ph-brain text-green"></i> GPT-4o</button>
+                                        <button @click="setModel('claude-3.5', 'Claude 3.5'); open=false" class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-sm flex items-center gap-2"><i class="ph ph-robot text-orange-400"></i> Claude 3.5</button>
+                                        <button @click="setModel('recraft', 'Recraft V3'); open=false" class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-sm flex items-center gap-2"><i class="ph ph-image text-blue-400"></i> Recraft V3</button>
                                     </div>
                                 </div>
                             </div>
 
-                            <button @click="triggerUpload()" class="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition" title="Прикрепить">
+                            <input type="file" x-ref="fileInput" class="hidden" @change="uploadFile($event)">
+                            <button @click="$refs.fileInput.click()" class="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition">
                                 <i class="ph ph-paperclip text-xl"></i>
                             </button>
-
-                            <button @click="triggerVoice()" class="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition" title="Голос">
-                                <i class="ph ph-microphone text-xl"></i>
-                            </button>
-                            
-                            <div class="relative">
-                                <button @click="settingsOpen = !settingsOpen" class="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition">
-                                    <i class="ph ph-gear text-xl"></i>
-                                </button>
-                                <div x-show="settingsOpen" @click.outside="settingsOpen = false" x-transition class="absolute bottom-full left-0 mb-2 w-64 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl p-4 z-50">
-                                    <div class="mb-4">
-                                        <div class="flex justify-between text-xs text-gray-400 mb-2">Температура: <span x-text="settings.temperature"></span></div>
-                                        <input type="range" min="0" max="1" step="0.1" x-model="settings.temperature" class="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer">
-                                    </div>
-                                    <div class="flex items-center justify-between">
-                                        <span class="text-sm text-gray-300">Веб-поиск</span>
-                                        <button @click="settings.webSearch = !settings.webSearch" class="w-9 h-5 rounded-full relative transition-colors" :class="settings.webSearch ? 'bg-green' : 'bg-gray-600'">
-                                            <div class="w-3 h-3 bg-white rounded-full absolute top-1 transition-all" :class="settings.webSearch ? 'left-5' : 'left-1'"></div>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
                         </div>
 
                         <button 
@@ -207,130 +173,150 @@
                         </button>
                     </div>
                 </div>
-                
-                <div class="text-center mt-2 text-xs text-gray-600">
-                    Neirosetim может совершать ошибки. Проверяйте важную информацию.
-                </div>
             </div>
         </div>
 
     </main>
-
 </div>
 
 <script>
     function appLogic() {
         return {
             sidebarOpen: false,
-            settingsOpen: false,
             isTyping: false,
             currentModel: 'gpt-4o',
             currentModelName: 'GPT-4o',
             userInput: '',
             activeChatId: null,
-            
-            settings: { temperature: 0.7, webSearch: false },
+            chatHistory: [],
             messages: [],
             
-            // Имитация базы данных чатов
-            chatHistory: [
-                { id: 1, title: 'Анализ кода Python', date: new Date() },
-                { id: 2, title: 'Генерация песни', date: new Date() }
-            ],
+            async init() {
+                await this.loadHistory();
+            },
 
-            init() {
-                // При загрузке ничего не выбираем, или выбираем последний
+            // 1. Загрузка списка чатов (GET /api/chats)
+            async loadHistory() {
+                try {
+                    const res = await fetch('/api/chats');
+                    if (res.ok) {
+                        this.chatHistory = await res.json();
+                    }
+                } catch (e) { console.error("Ошибка загрузки истории:", e); }
+            },
+
+            // 2. Загрузка конкретного чата (GET /api/chats/{id})
+            async loadChat(id) {
+                this.activeChatId = id;
+                this.messages = [];
+                this.sidebarOpen = false; // Закрыть меню на мобилках
+                try {
+                    const res = await fetch(`/api/chats/${id}`);
+                    if (res.ok) {
+                        this.messages = await res.json();
+                        this.scrollToBottom();
+                    }
+                } catch (e) { console.error("Ошибка загрузки чата:", e); }
             },
 
             setModel(id, name) {
                 this.currentModel = id;
                 this.currentModelName = name;
-                // При смене модели создаем контекст нового чата, если текущий не пустой
-                if (this.messages.length > 0) {
-                    this.startNewChat();
+                // Если мы уже в чате, предлагаем начать новый для смены контекста
+                if (this.messages.length > 0 && this.activeChatId) {
+                   this.startNewChat();
                 }
-            },
-
-            triggerUpload() {
-                alert("Функция загрузки файлов будет доступна в следующем обновлении (S3 bucket integration).");
-            },
-
-            triggerVoice() {
-                alert("Функция голосового ввода (Whisper API) скоро будет подключена.");
             },
 
             startNewChat() {
-                // Если в текущем чате были сообщения, "сохраняем" его в историю (визуально)
-                if (this.messages.length > 0 && !this.activeChatId) {
-                    const title = this.messages[0].content.substring(0, 20) + "...";
-                    this.chatHistory.unshift({
-                        id: Date.now(),
-                        title: title,
-                        date: new Date()
-                    });
-                }
-                
-                // Очистка
                 this.activeChatId = null;
                 this.messages = [];
                 this.userInput = '';
-                this.sidebarOpen = false; // На мобилке закрыть меню
                 this.$nextTick(() => this.$refs.chatInput.focus());
             },
 
-            loadChat(id) {
-                // Имитация загрузки чата
-                this.activeChatId = id;
-                this.messages = [
-                    { role: 'user', content: 'Это загруженное сообщение из истории...' },
-                    { role: 'assistant', content: 'Да, я помню этот диалог.' }
-                ];
-                this.sidebarOpen = false;
-            },
-
+            // 3. Отправка сообщения
             async sendMessage() {
                 if (!this.userInput.trim()) return;
-
                 const text = this.userInput;
                 this.userInput = '';
                 this.$refs.chatInput.style.height = 'auto';
 
-                // 1. Добавляем юзера
-                this.messages.push({ id: Date.now(), role: 'user', content: text });
+                // Визуально добавляем сообщение юзера сразу
+                this.messages.push({ role: 'user', content: text, id: Date.now() });
                 this.scrollToBottom();
                 this.isTyping = true;
 
-                // 2. Если это первое сообщение в "Новом чате", добавляем его в сайдбар
-                if (!this.activeChatId) {
-                    const newId = Date.now();
-                    this.activeChatId = newId;
-                    this.chatHistory.unshift({
-                        id: newId,
-                        title: text.substring(0, 20) + "...",
-                        date: new Date()
-                    });
-                }
+                try {
+                    let url, body;
+                    
+                    if (!this.activeChatId) {
+                        // Если чат новый -> Создаем чат (POST /api/chats/new)
+                        url = '/api/chats/new';
+                        body = { message: text, model: this.currentModel };
+                    } else {
+                        // Если чат существует -> Отправляем сообщение в него
+                        url = `/api/chats/${this.activeChatId}/message`;
+                        body = { message: text };
+                    }
 
-                // 3. Имитация ответа (пока нет бэкенда нейросетей)
-                setTimeout(() => {
-                    this.isTyping = false;
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(body)
+                    });
+
+                    if (!res.ok) throw new Error("Ошибка сети");
+
+                    const data = await res.json();
+
+                    // Если создали новый чат, запоминаем ID и обновляем меню слева
+                    if (!this.activeChatId && data.chat_id) {
+                        this.activeChatId = data.chat_id;
+                        await this.loadHistory(); 
+                    }
+
+                    // Добавляем ответ бота
+                    // Backend возвращает массив сообщений, берем последнее (ответ бота)
+                    const lastMsg = data.messages[data.messages.length - 1];
                     this.messages.push({
-                        id: Date.now() + 1,
-                        role: 'assistant',
-                        content: `Эмуляция ответа от **${this.currentModelName}** на запрос: "${text}"`
+                        role: lastMsg.role,
+                        content: lastMsg.content,
+                        image_url: lastMsg.image_url, // Если нейросеть вернула картинку
+                        id: Date.now()+1
                     });
+
+                } catch (e) {
+                    console.error(e);
+                    this.messages.push({ role: 'assistant', content: '⚠️ Ошибка связи с сервером.', id: Date.now() });
+                } finally {
+                    this.isTyping = false;
                     this.scrollToBottom();
-                }, 1000);
+                }
             },
 
-            parseMarkdown(text) {
-                return marked.parse(text);
+            async uploadFile(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                
+                const formData = new FormData();
+                formData.append('file', file);
+
+                try {
+                    const res = await fetch('/api/upload', { method: 'POST', body: formData });
+                    const data = await res.json();
+                    if(data.url) {
+                        this.userInput += ` [Файл: ${data.url}] `;
+                        alert("Файл загружен!");
+                    }
+                } catch(e) { alert("Ошибка загрузки"); }
             },
 
+            parseMarkdown(text) { return marked.parse(text); },
             scrollToBottom() {
                 this.$nextTick(() => {
-                    const container = document.getElementById('chat-container');
-                    container.scrollTop = container.scrollHeight;
+                    const el = document.getElementById('chat-container');
+                    el.scrollTop = el.scrollHeight;
                 });
             }
         }
