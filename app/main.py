@@ -24,6 +24,10 @@ from sqlalchemy import desc
 # ЮKassa
 from yookassa import Configuration, Payment as YooPayment
 
+# === НОВЫЙ ИМПОРТ ДЛЯ ИИ ===
+# Используем app.services, так как у вас такая структура работает
+from app.services.ai_generation import generate_ai_response
+
 # === ИМПОРТЫ ИЗ НОВЫХ МОДУЛЕЙ ===
 from app.database import engine, get_db, Base
 from app.models import UserWallet, UserSession, Payment, EmailCode, Chat, Message
@@ -256,7 +260,7 @@ def logout(request: Request, db: Session = Depends(get_db)):
     resp.delete_cookie("vk_verifier")
     return resp
 
-# ==================== НОВОЕ API ЧАТОВ (БД + S3) ====================
+# ==================== НОВОЕ API ЧАТОВ (БД + S3 + AI) ====================
 
 @app.get("/api/chats")
 def get_chats(request: Request, db: Session = Depends(get_db)):
@@ -291,14 +295,18 @@ def get_chat_history(chat_id: int, request: Request, db: Session = Depends(get_d
 
 @app.post("/api/chats/new")
 async def create_new_chat(request: Request, data: dict = Body(...), db: Session = Depends(get_db)):
-    """Создает чат, пишет сообщение, эмулирует ответ (пока без Fal.ai)"""
+    """Создает чат и сразу генерирует ответ AI"""
     user = get_current_user(request, db)
     if not user: raise HTTPException(401)
     
     first_msg = data.get("message", "New Chat")
+    # Фронт присылает 'model', например 'gpt-4o' или 'recraft'
+    selected_model = data.get("model", "deepseek/deepseek-chat") 
+    
     title = first_msg[:30] + "..." if len(first_msg) > 30 else first_msg
     
-    new_chat = Chat(user_casdoor_id=user.casdoor_id, title=title, model=data.get("model", "gpt-4o"))
+    # Создаем чат
+    new_chat = Chat(user_casdoor_id=user.casdoor_id, title=title, model=selected_model)
     db.add(new_chat)
     db.commit()
     db.refresh(new_chat)
@@ -306,22 +314,39 @@ async def create_new_chat(request: Request, data: dict = Body(...), db: Session 
     # 1. Сохраняем сообщение юзера
     msg = Message(chat_id=new_chat.id, role="user", content=first_msg)
     db.add(msg)
+    db.commit()
     
-    # 2. Эмуляция ответа (здесь будет AI)
-    # TODO: Подключить services/ai_generation.py
-    bot_text = f"Эхо (БД): {first_msg}"
-    bot_msg = Message(chat_id=new_chat.id, role="assistant", content=bot_text)
+    # 2. Генерируем ответ (AI)
+    messages_payload = [{"role": "user", "content": first_msg}]
+    
+    try:
+        # Вызываем функцию генерации (она безопасна и не уронит сервер)
+        ai_reply = await generate_ai_response(selected_model, messages_payload, user.balance)
+    except HTTPException as e:
+        ai_reply = f"⚠️ {e.detail}" # Сообщение о нехватке денег или другая ошибка HTTP
+    except Exception as e:
+        ai_reply = f"Извините, произошла ошибка: {str(e)}"
+
+    # 3. Сохраняем ответ бота
+    bot_msg = Message(chat_id=new_chat.id, role="assistant", content=ai_reply)
+    
+    # Если это картинка (Markdown), вытаскиваем URL отдельно для удобства
+    if ai_reply and ai_reply.startswith("![") and "](" in ai_reply:
+        try:
+            bot_msg.image_url = ai_reply.split("](")[1].rstrip(")")
+        except: pass
+
     db.add(bot_msg)
     db.commit()
     
     return {"chat_id": new_chat.id, "title": title, "messages": [
         {"role": "user", "content": first_msg},
-        {"role": "assistant", "content": bot_text}
+        {"role": "assistant", "content": ai_reply, "image_url": bot_msg.image_url}
     ]}
 
 @app.post("/api/chats/{chat_id}/message")
 async def chat_reply(chat_id: int, request: Request, data: dict = Body(...), db: Session = Depends(get_db)):
-    """Отправка сообщения в существующий чат"""
+    """Отправка сообщения в существующий чат + ответ AI"""
     user = get_current_user(request, db)
     if not user: raise HTTPException(401)
 
@@ -333,22 +358,43 @@ async def chat_reply(chat_id: int, request: Request, data: dict = Body(...), db:
     # 1. Сохраняем сообщение юзера
     user_msg = Message(chat_id=chat.id, role="user", content=user_text)
     db.add(user_msg)
+    chat.updated_at = datetime.utcnow() # Поднимаем чат в списке
+    db.commit()
+
+    # 2. Собираем контекст (последние 6 сообщений)
+    last_messages = db.query(Message).filter_by(chat_id=chat.id).order_by(Message.id.desc()).limit(6).all()
+    last_messages.reverse()
     
-    # 2. Обновляем дату чата (чтобы он поднялся вверх в списке)
-    chat.updated_at = datetime.utcnow()
+    messages_payload = [{"role": "system", "content": "Ты полезный и умный ассистент."}]
+    for m in last_messages:
+        # Отправляем только текст
+        content = m.content or ""
+        messages_payload.append({"role": m.role, "content": content})
+
+    # 3. Генерируем ответ
+    try:
+        ai_reply = await generate_ai_response(chat.model, messages_payload, user.balance)
+    except HTTPException as e:
+        ai_reply = f"⚠️ {e.detail}"
+    except Exception as e:
+        ai_reply = f"Ошибка генерации: {str(e)}"
     
-    # 3. Эмуляция ответа (здесь потом будет вызов AI)
-    bot_text = f"Я услышал: {user_text} (Контекст сохранен)"
-    bot_msg = Message(chat_id=chat.id, role="assistant", content=bot_text)
+    # 4. Сохраняем ответ бота
+    bot_msg = Message(chat_id=chat.id, role="assistant", content=ai_reply)
+    
+    if ai_reply and ai_reply.startswith("![") and "](" in ai_reply:
+        try:
+            bot_msg.image_url = ai_reply.split("](")[1].rstrip(")")
+        except: pass
+        
     db.add(bot_msg)
-    
     db.commit()
 
     return {
         "chat_id": chat.id,
         "messages": [
             {"role": "user", "content": user_text},
-            {"role": "assistant", "content": bot_text}
+            {"role": "assistant", "content": ai_reply, "image_url": bot_msg.image_url}
         ]
     }
 

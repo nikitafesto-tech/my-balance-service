@@ -71,6 +71,8 @@ services:
       - S3_BUCKET_NAME=${S3_BUCKET_NAME}
       - S3_ENDPOINT_URL=${S3_ENDPOINT_URL}
       - S3_REGION_NAME=${S3_REGION_NAME}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - FAL_KEY=${FAL_KEY}
     depends_on:
       - db
       - casdoor
