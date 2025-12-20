@@ -72,6 +72,7 @@
         </header>
 
         <div class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6" id="chat-container">
+            
             <div x-show="messages.length === 0 && !activeChatId" class="h-full flex flex-col items-center justify-center text-center">
                 <div class="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mb-6">
                     <i class="ph ph-magic-wand text-3xl text-white"></i>
@@ -95,10 +96,20 @@
                             
                             <div x-html="parseMarkdown(msg.content)"></div>
                             
-                            <template x-if="msg.image_url">
+                            <template x-if="msg.image_url && !msg.image_url.endsWith('.mp4')">
                                 <img :src="msg.image_url" class="mt-3 rounded-lg max-w-full border border-white/10">
                             </template>
-                             <template x-if="msg.attachment_url">
+
+                            <template x-if="msg.image_url && msg.image_url.endsWith('.mp4')">
+                                <div class="mt-3 rounded-lg overflow-hidden border border-white/10 w-full max-w-md">
+                                    <video controls playsinline class="w-full">
+                                        <source :src="msg.image_url" type="video/mp4">
+                                        Ваш браузер не поддерживает видео.
+                                    </video>
+                                </div>
+                            </template>
+
+                            <template x-if="msg.attachment_url">
                                 <div class="mt-2 text-xs text-gray-400 flex items-center gap-1">
                                     <i class="ph ph-file"></i> Файл
                                 </div>
@@ -148,11 +159,30 @@
                                     <span class="font-semibold" x-text="currentModelName">GPT-4o</span>
                                     <i class="ph ph-caret-down text-gray-500"></i>
                                 </button>
+                                
                                 <div x-show="open" @click.outside="open = false" x-transition class="absolute bottom-full left-0 mb-2 w-64 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden">
                                     <div class="p-2 space-y-1">
-                                        <button @click="setModel('gpt-4o', 'GPT-4o'); open=false" class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-sm flex items-center gap-2"><i class="ph ph-brain text-green"></i> GPT-4o</button>
-                                        <button @click="setModel('claude-3.5', 'Claude 3.5'); open=false" class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-sm flex items-center gap-2"><i class="ph ph-robot text-orange-400"></i> Claude 3.5</button>
-                                        <button @click="setModel('recraft', 'Recraft V3'); open=false" class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-sm flex items-center gap-2"><i class="ph ph-image text-blue-400"></i> Recraft V3</button>
+                                        <div class="px-3 py-1 text-xs text-gray-500 font-bold uppercase">Текст</div>
+                                        <button @click="setModel('gpt-5.2', 'GPT-5.2'); open=false" class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-sm flex items-center gap-2">
+                                            <i class="ph ph-lightning text-yellow-400"></i> GPT-5.2
+                                        </button>
+                                        <button @click="setModel('claude-3.5', 'Claude 3.5'); open=false" class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-sm flex items-center gap-2">
+                                            <i class="ph ph-brain text-orange-400"></i> Claude 3.5
+                                        </button>
+                                        <button @click="setModel('gemini', 'Gemini 3 Flash'); open=false" class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-sm flex items-center gap-2">
+                                            <i class="ph ph-star text-blue-400"></i> Gemini 3 Flash
+                                        </button>
+
+                                        <div class="px-3 py-1 text-xs text-gray-500 font-bold uppercase mt-2">Медиа</div>
+                                        <button @click="setModel('recraft', 'Recraft V3'); open=false" class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-sm flex items-center gap-2">
+                                            <i class="ph ph-paint-brush text-purple-400"></i> Recraft V3
+                                        </button>
+                                        <button @click="setModel('flux', 'Flux 1.1 Ultra'); open=false" class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-sm flex items-center gap-2">
+                                            <i class="ph ph-image text-green-400"></i> Flux Ultra
+                                        </button>
+                                        <button @click="setModel('luma', 'Luma Ray 2 (Video)'); open=false" class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-sm flex items-center gap-2">
+                                            <i class="ph ph-film-strip text-red-500"></i> Luma Video
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -282,7 +312,7 @@
                     this.messages.push({
                         role: lastMsg.role,
                         content: lastMsg.content,
-                        image_url: lastMsg.image_url, // Если нейросеть вернула картинку
+                        image_url: lastMsg.image_url, // Если нейросеть вернула картинку/видео
                         id: Date.now()+1
                     });
 
