@@ -24,9 +24,31 @@
             </button>
         </div>
 
+        <div class="px-4 mb-4 space-y-4">
+            <button @click="webSearch = !webSearch" 
+                class="w-full flex items-center justify-between px-3 py-2 rounded-lg border text-xs font-medium transition-all"
+                :class="webSearch ? 'bg-blue-500/20 border-blue-500 text-blue-400' : 'bg-white/5 border-transparent text-gray-400'">
+                <div class="flex items-center gap-2">
+                    <i class="ph ph-globe text-lg"></i>
+                    <span>Web Search</span>
+                </div>
+                <div class="w-8 h-4 rounded-full relative transition-colors" :class="webSearch ? 'bg-blue-500' : 'bg-gray-600'">
+                    <div class="w-2 h-2 bg-white rounded-full absolute top-1 transition-all" :style="webSearch ? 'right: 4px' : 'left: 4px'"></div>
+                </div>
+            </button>
+
+            <div class="bg-white/5 rounded-lg p-3 border border-white/5">
+                <div class="flex justify-between text-xs text-gray-400 mb-2">
+                    <span>Точность</span>
+                    <span>Креатив</span>
+                </div>
+                <input type="range" min="0" max="1" step="0.1" x-model="temperature" class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                <div class="text-center text-xs text-green mt-1 font-mono" x-text="temperature"></div>
+            </div>
+        </div>
+
         <div class="flex-1 overflow-y-auto px-2 space-y-1">
-            <div class="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">Ваши чаты</div>
-            
+            <div class="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">История</div>
             <template x-for="chat in chatHistory" :key="chat.id">
                 <button 
                     @click="loadChat(chat.id)"
@@ -37,10 +59,6 @@
                     <div class="flex-1 truncate text-sm" x-text="chat.title"></div>
                 </button>
             </template>
-
-            <div x-show="chatHistory.length === 0" class="text-center py-10 text-gray-600 text-sm">
-                История пуста
-            </div>
         </div>
 
         <div class="p-4 border-t border-white/5">
@@ -59,47 +77,34 @@
         </div>
     </aside>
 
-    <div x-show="sidebarOpen" @click="sidebarOpen = false" x-transition.opacity class="fixed inset-0 bg-black/80 z-30 md:hidden"></div>
-
     <main class="flex-1 flex flex-col relative min-w-0 bg-dark">
-        
         <header class="h-14 flex items-center justify-between px-4 border-b border-white/5 flex-shrink-0 md:hidden">
-            <button @click="sidebarOpen = true" class="p-2 text-gray-400 hover:text-white">
-                <i class="ph ph-list text-2xl"></i>
-            </button>
+            <button @click="sidebarOpen = true" class="p-2 text-gray-400 hover:text-white"><i class="ph ph-list text-2xl"></i></button>
             <span class="font-semibold text-sm">Neirosetim AI</span>
             <div class="w-8"></div>
         </header>
 
         <div class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6" id="chat-container">
-            
             <div x-show="messages.length === 0 && !activeChatId" class="h-full flex flex-col items-center justify-center text-center">
                 <div class="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mb-6">
                     <i class="ph ph-magic-wand text-3xl text-white"></i>
                 </div>
                 <h2 class="text-2xl font-bold mb-2">Чем могу помочь?</h2>
                 <div class="text-gray-500 max-w-md mb-8">
-                    Выбрана модель: <span class="text-green font-bold" x-text="currentModelName"></span>
+                    Модель: <span class="text-green font-bold" x-text="currentModelName"></span>
                 </div>
             </div>
 
             <template x-for="msg in messages" :key="msg.id">
                 <div class="flex gap-4 max-w-4xl mx-auto" :class="msg.role === 'user' ? 'justify-end' : 'justify-start'">
-                    
                     <div x-show="msg.role === 'assistant'" class="w-8 h-8 rounded-full bg-green flex-shrink-0 flex items-center justify-center mt-1">
                         <i class="ph ph-robot text-white text-lg"></i>
                     </div>
-
                     <div class="flex flex-col max-w-[85%]" :class="msg.role === 'user' ? 'items-end' : 'items-start'">
                         <div class="px-5 py-3.5 rounded-2xl text-[15px] leading-relaxed shadow-sm"
                              :class="msg.role === 'user' ? 'bg-white/10 text-white rounded-tr-sm' : 'bg-transparent text-gray-100 pl-0'">
-                            
                             <div x-html="parseMarkdown(msg.content)"></div>
                             
-                            <template x-if="msg.image_url && !msg.image_url.endsWith('.mp4')">
-                                <img :src="msg.image_url" class="mt-3 rounded-lg max-w-full border border-white/10">
-                            </template>
-
                             <template x-if="msg.image_url && msg.image_url.endsWith('.mp4')">
                                 <div class="mt-3 rounded-lg overflow-hidden border border-white/10 w-full max-w-md">
                                     <video controls playsinline class="w-full">
@@ -108,106 +113,84 @@
                                     </video>
                                 </div>
                             </template>
-
-                            <template x-if="msg.attachment_url">
-                                <div class="mt-2 text-xs text-gray-400 flex items-center gap-1">
-                                    <i class="ph ph-file"></i> Файл
-                                </div>
+                            <template x-if="msg.image_url && !msg.image_url.endsWith('.mp4')">
+                                <img :src="msg.image_url" class="mt-3 rounded-lg max-w-full border border-white/10">
                             </template>
-
                         </div>
                     </div>
                 </div>
             </template>
             
             <div x-show="isTyping" class="flex gap-4 max-w-4xl mx-auto">
-                 <div class="w-8 h-8 rounded-full bg-green flex-shrink-0 flex items-center justify-center">
-                    <i class="ph ph-robot text-white text-lg"></i>
-                </div>
+                 <div class="w-8 h-8 rounded-full bg-green flex-shrink-0 flex items-center justify-center"><i class="ph ph-robot text-white text-lg"></i></div>
                 <div class="flex items-center gap-1 h-10 px-4">
                     <div class="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
                     <div class="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-75"></div>
                     <div class="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-150"></div>
                 </div>
             </div>
-            
             <div class="h-32"></div>
         </div>
 
         <div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-dark via-dark to-transparent pt-10 pb-6 px-4">
             <div class="max-w-3xl mx-auto relative">
-                
                 <div class="bg-sidebar border border-white/10 rounded-2xl shadow-lg flex flex-col transition-colors focus-within:border-white/20">
-                    
-                    <textarea 
-                        x-model="userInput" 
-                        @keydown.enter.prevent="sendMessage()"
-                        rows="1"
-                        placeholder="Опиши свой шедевр..." 
+                    <textarea x-model="userInput" @keydown.enter.prevent="sendMessage()" rows="1" placeholder="Запрос..." 
                         class="w-full bg-transparent text-white placeholder-gray-500 px-4 py-4 resize-none outline-none max-h-48 overflow-y-auto"
-                        style="min-height: 56px;"
-                        x-ref="chatInput"
-                        @input="$el.style.height = 'auto'; $el.style.height = $el.scrollHeight + 'px'"
-                    ></textarea>
+                        style="min-height: 56px;" x-ref="chatInput" @input="$el.style.height = 'auto'; $el.style.height = $el.scrollHeight + 'px'"></textarea>
 
                     <div class="flex items-center justify-between px-3 pb-3 pt-1">
                         <div class="flex items-center gap-2">
-                            
                             <div class="relative" x-data="{ open: false }">
                                 <button @click="open = !open" class="flex items-center gap-2 bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-lg transition border border-white/5 text-xs sm:text-sm">
                                     <i class="ph ph-lightning text-green"></i>
                                     <span class="font-semibold" x-text="currentModelName">GPT-4o</span>
                                     <i class="ph ph-caret-down text-gray-500"></i>
                                 </button>
-                                
-                                <div x-show="open" @click.outside="open = false" x-transition class="absolute bottom-full left-0 mb-2 w-64 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden">
-                                    <div class="p-2 space-y-1">
-                                        <div class="px-3 py-1 text-xs text-gray-500 font-bold uppercase">Текст</div>
-                                        <button @click="setModel('gpt-5.2', 'GPT-5.2'); open=false" class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-sm flex items-center gap-2">
-                                            <i class="ph ph-lightning text-yellow-400"></i> GPT-5.2
-                                        </button>
-                                        <button @click="setModel('claude-3.5', 'Claude 3.5'); open=false" class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-sm flex items-center gap-2">
-                                            <i class="ph ph-brain text-orange-400"></i> Claude 3.5
-                                        </button>
-                                        <button @click="setModel('gemini', 'Gemini 3 Flash'); open=false" class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-sm flex items-center gap-2">
-                                            <i class="ph ph-star text-blue-400"></i> Gemini 3 Flash
-                                        </button>
+                                <div x-show="open" @click.outside="open = false" x-transition class="absolute bottom-full left-0 mb-2 w-72 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden">
+                                    <div class="p-2 space-y-1 max-h-80 overflow-y-auto custom-scrollbar">
+                                        
+                                        <div class="px-3 py-1 text-[10px] text-gray-500 font-bold uppercase tracking-wider bg-white/5 rounded mt-1">OpenAI</div>
+                                        <button @click="setModel('gpt-5.2', 'GPT-5.2'); open=false" class="model-btn"><i class="ph ph-lightning text-yellow-400"></i> GPT-5.2</button>
+                                        <button @click="setModel('gpt-4o', 'GPT-4o'); open=false" class="model-btn"><i class="ph ph-brain text-green-500"></i> GPT-4o</button>
+                                        <button @click="setModel('o1', 'o1 (Smart)'); open=false" class="model-btn"><i class="ph ph-lightbulb text-white"></i> o1 Reasoning</button>
 
-                                        <div class="px-3 py-1 text-xs text-gray-500 font-bold uppercase mt-2">Медиа</div>
-                                        <button @click="setModel('recraft', 'Recraft V3'); open=false" class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-sm flex items-center gap-2">
-                                            <i class="ph ph-paint-brush text-purple-400"></i> Recraft V3
-                                        </button>
-                                        <button @click="setModel('flux', 'Flux 1.1 Ultra'); open=false" class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-sm flex items-center gap-2">
-                                            <i class="ph ph-image text-green-400"></i> Flux Ultra
-                                        </button>
-                                        <button @click="setModel('luma', 'Luma Ray 2 (Video)'); open=false" class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-sm flex items-center gap-2">
-                                            <i class="ph ph-film-strip text-red-500"></i> Luma Video
-                                        </button>
+                                        <div class="px-3 py-1 text-[10px] text-gray-500 font-bold uppercase tracking-wider bg-white/5 rounded mt-2">Google / Anthropic</div>
+                                        <button @click="setModel('claude-3.5-sonnet', 'Claude 3.5'); open=false" class="model-btn"><i class="ph ph-robot text-orange-400"></i> Claude 3.5 Sonnet</button>
+                                        <button @click="setModel('gemini-3-pro', 'Gemini 3 Pro'); open=false" class="model-btn"><i class="ph ph-star text-blue-400"></i> Gemini 3 Pro</button>
+
+                                        <div class="px-3 py-1 text-[10px] text-gray-500 font-bold uppercase tracking-wider bg-white/5 rounded mt-2">Медиа (Видео/Фото)</div>
+                                        <button @click="setModel('veo-3.1', 'Veo 3.1 Video'); open=false" class="model-btn"><i class="ph ph-film-strip text-red-500"></i> Veo 3.1</button>
+                                        <button @click="setModel('wan-2.6-1080p', 'Wan 2.6 Video'); open=false" class="model-btn"><i class="ph ph-film-strip text-red-500"></i> Wan 2.6 HQ</button>
+                                        <button @click="setModel('recraft-v3', 'Recraft V3'); open=false" class="model-btn"><i class="ph ph-paint-brush text-purple-400"></i> Recraft V3</button>
+                                        <button @click="setModel('flux-1.1-ultra', 'Flux Ultra'); open=false" class="model-btn"><i class="ph ph-image text-green-400"></i> Flux 1.1 Ultra</button>
                                     </div>
                                 </div>
                             </div>
 
                             <input type="file" x-ref="fileInput" class="hidden" @change="uploadFile($event)">
-                            <button @click="$refs.fileInput.click()" class="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition">
+                            <button @click="$refs.fileInput.click()" class="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition" title="Прикрепить фото">
                                 <i class="ph ph-paperclip text-xl"></i>
                             </button>
                         </div>
 
-                        <button 
-                            @click="sendMessage()"
-                            class="p-2 rounded-xl transition-all duration-200"
-                            :class="userInput.trim() ? 'bg-white text-black hover:bg-gray-200' : 'bg-white/10 text-gray-500 cursor-not-allowed'"
-                            :disabled="!userInput.trim()"
-                        >
+                        <button @click="sendMessage()" class="p-2 rounded-xl transition-all duration-200" :class="userInput.trim() ? 'bg-white text-black hover:bg-gray-200' : 'bg-white/10 text-gray-500 cursor-not-allowed'" :disabled="!userInput.trim()">
                             <i class="ph ph-arrow-up text-xl font-bold"></i>
                         </button>
                     </div>
                 </div>
             </div>
         </div>
-
     </main>
 </div>
+
+<style>
+    .model-btn { width: 100%; text-align: left; padding: 8px 12px; border-radius: 8px; font-size: 13px; display: flex; align-items: center; gap: 8px; transition: all 0.2s; }
+    .model-btn:hover { background: rgba(255,255,255,0.05); color: white; }
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #1a1a1a; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+</style>
 
 <script>
     function appLogic() {
@@ -220,135 +203,78 @@
             activeChatId: null,
             chatHistory: [],
             messages: [],
+            temperature: 0.7,
+            webSearch: false,
             
-            async init() {
-                await this.loadHistory();
-            },
+            async init() { await this.loadHistory(); },
 
-            // 1. Загрузка списка чатов (GET /api/chats)
             async loadHistory() {
-                try {
-                    const res = await fetch('/api/chats');
-                    if (res.ok) {
-                        this.chatHistory = await res.json();
-                    }
-                } catch (e) { console.error("Ошибка загрузки истории:", e); }
+                try { const res = await fetch('/api/chats'); if (res.ok) this.chatHistory = await res.json(); } catch (e) {}
             },
 
-            // 2. Загрузка конкретного чата (GET /api/chats/{id})
             async loadChat(id) {
-                this.activeChatId = id;
-                this.messages = [];
-                this.sidebarOpen = false; // Закрыть меню на мобилках
-                try {
-                    const res = await fetch(`/api/chats/${id}`);
-                    if (res.ok) {
-                        this.messages = await res.json();
-                        this.scrollToBottom();
-                    }
-                } catch (e) { console.error("Ошибка загрузки чата:", e); }
+                this.activeChatId = id; this.messages = []; this.sidebarOpen = false;
+                try { const res = await fetch(`/api/chats/${id}`); if (res.ok) { this.messages = await res.json(); this.scrollToBottom(); } } catch (e) {}
             },
 
             setModel(id, name) {
-                this.currentModel = id;
-                this.currentModelName = name;
-                // Если мы уже в чате, предлагаем начать новый для смены контекста
-                if (this.messages.length > 0 && this.activeChatId) {
-                   this.startNewChat();
-                }
+                this.currentModel = id; this.currentModelName = name;
+                if (this.messages.length > 0 && this.activeChatId) this.startNewChat();
             },
 
             startNewChat() {
-                this.activeChatId = null;
-                this.messages = [];
-                this.userInput = '';
+                this.activeChatId = null; this.messages = []; this.userInput = '';
                 this.$nextTick(() => this.$refs.chatInput.focus());
             },
 
-            // 3. Отправка сообщения
             async sendMessage() {
                 if (!this.userInput.trim()) return;
                 const text = this.userInput;
-                this.userInput = '';
-                this.$refs.chatInput.style.height = 'auto';
+                this.userInput = ''; this.$refs.chatInput.style.height = 'auto';
 
-                // Визуально добавляем сообщение юзера сразу
                 this.messages.push({ role: 'user', content: text, id: Date.now() });
                 this.scrollToBottom();
                 this.isTyping = true;
 
                 try {
-                    let url, body;
+                    const payload = { 
+                        message: text, 
+                        model: this.currentModel,
+                        temperature: parseFloat(this.temperature),
+                        web_search: this.webSearch
+                    };
                     
-                    if (!this.activeChatId) {
-                        // Если чат новый -> Создаем чат (POST /api/chats/new)
-                        url = '/api/chats/new';
-                        body = { message: text, model: this.currentModel };
-                    } else {
-                        // Если чат существует -> Отправляем сообщение в него
-                        url = `/api/chats/${this.activeChatId}/message`;
-                        body = { message: text };
-                    }
-
-                    const res = await fetch(url, {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify(body)
-                    });
-
-                    if (!res.ok) throw new Error("Ошибка сети");
-
+                    let url = !this.activeChatId ? '/api/chats/new' : `/api/chats/${this.activeChatId}/message`;
+                    const res = await fetch(url, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+                    if (!res.ok) throw new Error("Error");
                     const data = await res.json();
 
-                    // Если создали новый чат, запоминаем ID и обновляем меню слева
-                    if (!this.activeChatId && data.chat_id) {
-                        this.activeChatId = data.chat_id;
-                        await this.loadHistory(); 
-                    }
+                    if (!this.activeChatId && data.chat_id) { this.activeChatId = data.chat_id; await this.loadHistory(); }
 
-                    // Добавляем ответ бота
-                    // Backend возвращает массив сообщений, берем последнее (ответ бота)
                     const lastMsg = data.messages[data.messages.length - 1];
-                    this.messages.push({
-                        role: lastMsg.role,
-                        content: lastMsg.content,
-                        image_url: lastMsg.image_url, // Если нейросеть вернула картинку/видео
-                        id: Date.now()+1
-                    });
-
+                    this.messages.push({ role: lastMsg.role, content: lastMsg.content, image_url: lastMsg.image_url, id: Date.now()+1 });
                 } catch (e) {
-                    console.error(e);
-                    this.messages.push({ role: 'assistant', content: '⚠️ Ошибка связи с сервером.', id: Date.now() });
+                    this.messages.push({ role: 'assistant', content: '⚠️ Ошибка.', id: Date.now() });
                 } finally {
-                    this.isTyping = false;
-                    this.scrollToBottom();
+                    this.isTyping = false; this.scrollToBottom();
                 }
             },
 
             async uploadFile(event) {
-                const file = event.target.files[0];
-                if (!file) return;
-                
-                const formData = new FormData();
-                formData.append('file', file);
-
+                const file = event.target.files[0]; if (!file) return;
+                const formData = new FormData(); formData.append('file', file);
                 try {
                     const res = await fetch('/api/upload', { method: 'POST', body: formData });
                     const data = await res.json();
-                    if(data.url) {
-                        this.userInput += ` [Файл: ${data.url}] `;
-                        alert("Файл загружен!");
+                    if(data.url) { 
+                        this.userInput += ` [Файл: ${data.url}] `; 
+                        alert("Файл загружен! ИИ увидит это изображение."); 
                     }
-                } catch(e) { alert("Ошибка загрузки"); }
+                } catch(e) { alert("Ошибка"); }
             },
 
             parseMarkdown(text) { return marked.parse(text); },
-            scrollToBottom() {
-                this.$nextTick(() => {
-                    const el = document.getElementById('chat-container');
-                    el.scrollTop = el.scrollHeight;
-                });
-            }
+            scrollToBottom() { this.$nextTick(() => { const el = document.getElementById('chat-container'); el.scrollTop = el.scrollHeight; }); }
         }
     }
 </script>

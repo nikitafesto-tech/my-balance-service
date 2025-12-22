@@ -24,11 +24,11 @@ from sqlalchemy import desc
 # ЮKassa
 from yookassa import Configuration, Payment as YooPayment
 
-# === НОВЫЙ ИМПОРТ ДЛЯ ИИ ===
-# Используем app.services, так как у вас такая структура работает
+# === ИМПОРТЫ ДЛЯ ИИ ===
+# Используем app.services, как в вашем рабочем коде
 from app.services.ai_generation import generate_ai_response
 
-# === ИМПОРТЫ ИЗ НОВЫХ МОДУЛЕЙ ===
+# === ИМПОРТЫ ИЗ ВАШИХ МОДУЛЕЙ ===
 from app.database import engine, get_db, Base
 from app.models import UserWallet, UserSession, Payment, EmailCode, Chat, Message
 from app.services.s3 import upload_file_to_s3
@@ -90,7 +90,7 @@ if os.getenv("YOOKASSA_SHOP_ID"):
     Configuration.account_id = os.getenv("YOOKASSA_SHOP_ID")
     Configuration.secret_key = os.getenv("YOOKASSA_SECRET_KEY")
 
-# ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (ВАШИ) ====================
+# ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
 
 def get_current_user(request: Request, db: Session):
     session_id = request.cookies.get("session_id")
@@ -137,10 +137,9 @@ def send_email_via_smtp(to_email, code):
         logger.error(f"SMTP Error: {e}")
         return False
 
-# --- ВАЖНЫЕ ФУНКЦИИ CASDOOR (Я их вернул) ---
+# --- CASDOOR SYNC ---
 
 async def sync_user_to_casdoor(user_data, provider_prefix):
-    # Эта функция была в оригинале, я ее восстановил
     user_id = str(user_data.get("id"))
     full_name = user_data.get("name") or f"User {user_id}"
     casdoor_username = f"{provider_prefix}_{user_id}"
@@ -172,7 +171,6 @@ async def update_casdoor_balance(user_id, new_balance):
     
     async with httpx.AsyncClient() as client:
         try:
-            # Сначала получаем юзера, чтобы не затереть данные
             resp = await client.get(f"{api_base}/api/get-user?id={full_id}", auth=auth)
             if resp.status_code != 200: return
             
@@ -260,11 +258,10 @@ def logout(request: Request, db: Session = Depends(get_db)):
     resp.delete_cookie("vk_verifier")
     return resp
 
-# ==================== НОВОЕ API ЧАТОВ (БД + S3 + AI) ====================
+# ==================== API ЧАТОВ (UPDATED) ====================
 
 @app.get("/api/chats")
 def get_chats(request: Request, db: Session = Depends(get_db)):
-    """Отдает список чатов (слева)"""
     user = get_current_user(request, db)
     if not user: raise HTTPException(401)
     
@@ -275,7 +272,6 @@ def get_chats(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/api/chats/{chat_id}")
 def get_chat_history(chat_id: int, request: Request, db: Session = Depends(get_db)):
-    """Отдает историю сообщений"""
     user = get_current_user(request, db)
     if not user: raise HTTPException(401)
     
@@ -293,47 +289,57 @@ def get_chat_history(chat_id: int, request: Request, db: Session = Depends(get_d
         })
     return messages
 
+# === ОБНОВЛЕННАЯ ФУНКЦИЯ СОЗДАНИЯ ЧАТА ===
 @app.post("/api/chats/new")
 async def create_new_chat(request: Request, data: dict = Body(...), db: Session = Depends(get_db)):
-    """Создает чат и сразу генерирует ответ AI"""
     user = get_current_user(request, db)
     if not user: raise HTTPException(401)
     
     first_msg = data.get("message", "New Chat")
-    # Фронт присылает 'model', например 'gpt-4o' или 'recraft'
-    selected_model = data.get("model", "deepseek/deepseek-chat") 
+    selected_model = data.get("model", "gpt-4o")
+    # Получаем новые параметры
+    temperature = data.get("temperature", 0.7)
+    web_search = data.get("web_search", False)
     
     title = first_msg[:30] + "..." if len(first_msg) > 30 else first_msg
     
-    # Создаем чат
     new_chat = Chat(user_casdoor_id=user.casdoor_id, title=title, model=selected_model)
     db.add(new_chat)
     db.commit()
     db.refresh(new_chat)
     
-    # 1. Сохраняем сообщение юзера
     msg = Message(chat_id=new_chat.id, role="user", content=first_msg)
     db.add(msg)
     db.commit()
     
-    # 2. Генерируем ответ (AI)
-    messages_payload = [{"role": "user", "content": first_msg}]
-    
+    cost = 0.0
     try:
-        # Вызываем функцию генерации (она безопасна и не уронит сервер)
-        ai_reply = await generate_ai_response(selected_model, messages_payload, user.balance)
+        # Вызываем функцию, которая возвращает ответ и ЦЕНУ
+        ai_reply, cost = await generate_ai_response(
+            selected_model, 
+            [{"role": "user", "content": first_msg}], 
+            user.balance,
+            temperature=temperature,
+            web_search=web_search
+        )
     except HTTPException as e:
-        ai_reply = f"⚠️ {e.detail}" # Сообщение о нехватке денег или другая ошибка HTTP
+        ai_reply = f"⚠️ {e.detail}"
     except Exception as e:
-        ai_reply = f"Извините, произошла ошибка: {str(e)}"
+        ai_reply = f"Ошибка: {str(e)}"
 
-    # 3. Сохраняем ответ бота
+    # СПИСАНИЕ БАЛАНСА (Если успешно и есть цена)
+    if cost > 0:
+        user.balance -= cost
+        if user.balance < 0: user.balance = 0
+        db.add(user)
+        db.commit()
+        # Обновляем в Casdoor, чтобы не было рассинхрона
+        await update_casdoor_balance(user.casdoor_id, user.balance)
+
     bot_msg = Message(chat_id=new_chat.id, role="assistant", content=ai_reply)
-    
-    # Если это картинка (Markdown), вытаскиваем URL отдельно для удобства
-    if ai_reply and ai_reply.startswith("![") and "](" in ai_reply:
+    if ai_reply.startswith("!") or "[Generated]" in ai_reply:
         try:
-            bot_msg.image_url = ai_reply.split("](")[1].rstrip(")")
+            bot_msg.image_url = ai_reply.split("(")[1].split(")")[0]
         except: pass
 
     db.add(bot_msg)
@@ -344,9 +350,9 @@ async def create_new_chat(request: Request, data: dict = Body(...), db: Session 
         {"role": "assistant", "content": ai_reply, "image_url": bot_msg.image_url}
     ]}
 
+# === ОБНОВЛЕННАЯ ФУНКЦИЯ ОТВЕТА ===
 @app.post("/api/chats/{chat_id}/message")
 async def chat_reply(chat_id: int, request: Request, data: dict = Body(...), db: Session = Depends(get_db)):
-    """Отправка сообщения в существующий чат + ответ AI"""
     user = get_current_user(request, db)
     if not user: raise HTTPException(401)
 
@@ -354,37 +360,47 @@ async def chat_reply(chat_id: int, request: Request, data: dict = Body(...), db:
     if not chat: raise HTTPException(404, "Chat not found")
 
     user_text = data.get("message")
+    temperature = data.get("temperature", 0.7)
+    web_search = data.get("web_search", False)
     
-    # 1. Сохраняем сообщение юзера
     user_msg = Message(chat_id=chat.id, role="user", content=user_text)
     db.add(user_msg)
-    chat.updated_at = datetime.utcnow() # Поднимаем чат в списке
+    chat.updated_at = datetime.utcnow()
     db.commit()
 
-    # 2. Собираем контекст (последние 6 сообщений)
-    last_messages = db.query(Message).filter_by(chat_id=chat.id).order_by(Message.id.desc()).limit(6).all()
+    last_messages = db.query(Message).filter_by(chat_id=chat.id).order_by(Message.id.desc()).limit(10).all()
     last_messages.reverse()
     
-    messages_payload = [{"role": "system", "content": "Ты полезный и умный ассистент."}]
+    messages_payload = [{"role": "system", "content": "You are a helpful assistant."}]
     for m in last_messages:
-        # Отправляем только текст
-        content = m.content or ""
-        messages_payload.append({"role": m.role, "content": content})
+        messages_payload.append({"role": m.role, "content": m.content or ""})
 
-    # 3. Генерируем ответ
+    cost = 0.0
     try:
-        ai_reply = await generate_ai_response(chat.model, messages_payload, user.balance)
+        ai_reply, cost = await generate_ai_response(
+            chat.model, 
+            messages_payload, 
+            user.balance, 
+            temperature=temperature,
+            web_search=web_search
+        )
     except HTTPException as e:
         ai_reply = f"⚠️ {e.detail}"
     except Exception as e:
-        ai_reply = f"Ошибка генерации: {str(e)}"
+        ai_reply = f"Ошибка: {str(e)}"
     
-    # 4. Сохраняем ответ бота
+    # Списание
+    if cost > 0:
+        user.balance -= cost
+        if user.balance < 0: user.balance = 0
+        db.add(user)
+        db.commit()
+        await update_casdoor_balance(user.casdoor_id, user.balance)
+
     bot_msg = Message(chat_id=chat.id, role="assistant", content=ai_reply)
-    
-    if ai_reply and ai_reply.startswith("![") and "](" in ai_reply:
+    if ai_reply.startswith("!") or "[Generated]" in ai_reply:
         try:
-            bot_msg.image_url = ai_reply.split("](")[1].rstrip(")")
+            bot_msg.image_url = ai_reply.split("(")[1].split(")")[0]
         except: pass
         
     db.add(bot_msg)
@@ -400,7 +416,6 @@ async def chat_reply(chat_id: int, request: Request, data: dict = Body(...), db:
 
 @app.post("/api/upload")
 async def upload_file(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db)):
-    """Загрузка в S3"""
     user = get_current_user(request, db)
     if not user: raise HTTPException(401)
     
@@ -410,7 +425,7 @@ async def upload_file(request: Request, file: UploadFile = File(...), db: Sessio
     if not url: raise HTTPException(500, "S3 Upload Failed")
     return {"url": url, "filename": file.filename}
 
-# ==================== ОПЛАТА И AUTH (ВАШ КОД) ====================
+# ==================== AUTH & PAYMENT ENDPOINTS (NO CHANGE) ====================
 
 @app.post("/auth/email/request-code")
 async def request_email_code(data: dict = Body(...), db: Session = Depends(get_db)):
@@ -470,7 +485,7 @@ async def payment_webhook(request: Request, db: Session = Depends(get_db)):
     except:
         return JSONResponse({"status": "error"}, 500)
 
-# === CALLBACKS (VK, GOOGLE, YANDEX, TG) ===
+# === CALLBACKS (VK, GOOGLE, ETC) ===
 
 @app.get("/login/vk-direct")
 def login_vk_direct():

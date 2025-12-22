@@ -36,12 +36,17 @@ async def upload_url_to_s3(url: str) -> str:
             if resp.status_code != 200: return None
             file_bytes = resp.content
             
-            # Определяем тип контента
+            # Определяем тип контента из заголовков или расширения
             ctype = resp.headers.get("content-type", "")
-            ext = ".png"
-            if "video" in ctype: ext = ".mp4"
-            elif "jpeg" in ctype: ext = ".jpg"
-            elif "webp" in ctype: ext = ".webp"
+            ext = ".png" # fallback
+            
+            if "video" in ctype or ".mp4" in url: 
+                ext = ".mp4"
+                ctype = "video/mp4"
+            elif "jpeg" in ctype or ".jpg" in url: 
+                ext = ".jpg"
+            elif "webp" in ctype: 
+                ext = ".webp"
 
         filename = f"ai-gen-{uuid.uuid4()}{ext}"
         return await upload_file_to_s3(file_bytes, filename, ctype or "application/octet-stream")
