@@ -134,41 +134,38 @@
                                     <span class="font-semibold" x-text="currentModelName">GPT-4o</span>
                                     <i class="ph ph-caret-down text-gray-500"></i>
                                 </button>
-                                <div x-show="open" @click.outside="open = false" x-transition class="absolute bottom-full left-0 mb-2 w-72 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden">
-                                    <div class="p-2 space-y-1 max-h-80 overflow-y-auto custom-scrollbar">
-                                        <div class="cat-title">OpenAI (GPT)</div>
-                                        <button @click="setModel('gpt-5.2-pro', 'GPT-5.2 Pro'); open=false" class="model-btn"><i class="ph ph-lightning text-yellow-400"></i> GPT-5.2 Pro</button>
-                                        <button @click="setModel('gpt-5.2', 'GPT-5.2'); open=false" class="model-btn"><i class="ph ph-lightning text-yellow-400"></i> GPT-5.2</button>
+                                <div x-show="open" @click.outside="open = false" x-transition class="absolute bottom-full left-0 mb-2 w-72 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden max-h-96 flex flex-col">
+                                    <div class="p-2 space-y-1 overflow-y-auto custom-scrollbar flex-1">
+                                        <div class="cat-title">OpenAI</div>
                                         <button @click="setModel('gpt-4o', 'GPT-4o'); open=false" class="model-btn"><i class="ph ph-brain text-green-500"></i> GPT-4o</button>
-                                        <button @click="setModel('o1', 'OpenAI o1'); open=false" class="model-btn"><i class="ph ph-lightbulb text-white"></i> o1 Reasoning</button>
-                                        <button @click="setModel('o3', 'OpenAI o3'); open=false" class="model-btn"><i class="ph ph-lightbulb text-blue-300"></i> o3 Reasoning</button>
+                                        <button @click="setModel('gpt-4o-mini', 'GPT-4o Mini'); open=false" class="model-btn"><i class="ph ph-brain text-green-300"></i> GPT-4o Mini</button>
+                                        <button @click="setModel('o1-preview', 'o1 Preview'); open=false" class="model-btn"><i class="ph ph-lightbulb text-white"></i> o1 Preview</button>
+                                        <button @click="setModel('o1-mini', 'o1 Mini'); open=false" class="model-btn"><i class="ph ph-lightbulb text-gray-400"></i> o1 Mini</button>
 
                                         <div class="cat-title">Anthropic</div>
-                                        <button @click="setModel('claude-3.5-sonnet', 'Claude 3.5'); open=false" class="model-btn"><i class="ph ph-robot text-orange-400"></i> Claude 3.5</button>
-                                        <button @click="setModel('claude-4.5-sonnet', 'Claude 4.5'); open=false" class="model-btn"><i class="ph ph-robot text-orange-400"></i> Claude 4.5</button>
-                                        <button @click="setModel('claude-4.5-opus', 'Claude 4.5 Opus'); open=false" class="model-btn"><i class="ph ph-crown text-yellow-500"></i> Claude 4.5 Opus</button>
+                                        <button @click="setModel('claude-3.5-sonnet', 'Claude 3.5'); open=false" class="model-btn"><i class="ph ph-robot text-orange-400"></i> Claude 3.5 Sonnet</button>
+                                        <button @click="setModel('claude-3-opus', 'Claude 3 Opus'); open=false" class="model-btn"><i class="ph ph-crown text-yellow-500"></i> Claude 3 Opus</button>
 
                                         <div class="cat-title">Google</div>
-                                        <button @click="setModel('gemini-3-pro', 'Gemini 3 Pro'); open=false" class="model-btn"><i class="ph ph-star text-blue-400"></i> Gemini 3 Pro</button>
-                                        <button @click="setModel('gemini-1.5-pro', 'Gemini 1.5 Pro'); open=false" class="model-btn"><i class="ph ph-star text-blue-400"></i> Gemini 1.5 Pro</button>
+                                        <button @click="setModel('gemini-pro-1.5', 'Gemini Pro 1.5'); open=false" class="model-btn"><i class="ph ph-star text-blue-400"></i> Gemini Pro 1.5</button>
+                                        <button @click="setModel('gemini-flash-1.5', 'Gemini Flash 1.5'); open=false" class="model-btn"><i class="ph ph-lightning text-yellow-400"></i> Gemini Flash 1.5</button>
 
-                                        <div class="cat-title">Видео (Premium)</div>
-                                        <button @click="setModel('veo-3.1', 'Veo 3.1'); open=false" class="model-btn"><i class="ph ph-film-strip text-red-500"></i> Veo 3.1</button>
-                                        <button @click="setModel('sora-2', 'Sora 2'); open=false" class="model-btn"><i class="ph ph-video text-pink-500"></i> Sora 2</button>
-                                        <button @click="setModel('kling-2.1', 'Kling 2.1'); open=false" class="model-btn"><i class="ph ph-video text-purple-500"></i> Kling 2.1</button>
-                                        <button @click="setModel('wan-2.6-1080p', 'Wan 2.6 HQ'); open=false" class="model-btn"><i class="ph ph-film-strip text-red-500"></i> Wan 2.6 1080p</button>
-                                        <button @click="setModel('minimax-2.3', 'Minimax 2.3'); open=false" class="model-btn"><i class="ph ph-video text-blue-400"></i> Minimax 2.3</button>
+                                        <div class="cat-title">DeepSeek & Grok</div>
+                                        <button @click="setModel('deepseek-v3', 'DeepSeek V3'); open=false" class="model-btn"><i class="ph ph-code text-blue-300"></i> DeepSeek V3</button>
+                                        <button @click="setModel('grok-2', 'Grok 2 (Vision)'); open=false" class="model-btn"><i class="ph ph-hash text-white"></i> Grok 2 Vision</button>
+                                        <button @click="setModel('sonar-online', 'Perplexity Online'); open=false" class="model-btn"><i class="ph ph-globe text-teal-400"></i> Perplexity Online</button>
+
+                                        <div class="cat-title">Видео (Генерация)</div>
+                                        <button @click="setModel('kling-1.5', 'Kling 1.5 Pro'); open=false" class="model-btn"><i class="ph ph-film-strip text-purple-500"></i> Kling 1.5 Pro</button>
+                                        <button @click="setModel('minimax', 'Minimax'); open=false" class="model-btn"><i class="ph ph-video text-blue-400"></i> Minimax</button>
+                                        <button @click="setModel('runway-gen3', 'Runway Gen-3'); open=false" class="model-btn"><i class="ph ph-film-strip text-pink-500"></i> Runway Gen-3</button>
+                                        <button @click="setModel('luma-ray', 'Luma Ray'); open=false" class="model-btn"><i class="ph ph-aperture text-yellow-400"></i> Luma Ray</button>
 
                                         <div class="cat-title">Изображения</div>
+                                        <button @click="setModel('flux-pro', 'Flux 1.1 Pro'); open=false" class="model-btn"><i class="ph ph-image text-green-400"></i> Flux 1.1 Pro</button>
+                                        <button @click="setModel('recraft-v3', 'Recraft V3'); open=false" class="model-btn"><i class="ph ph-paint-brush text-red-400"></i> Recraft V3</button>
                                         <button @click="setModel('midjourney', 'Midjourney v6'); open=false" class="model-btn"><i class="ph ph-image text-white"></i> Midjourney v6</button>
-                                        <button @click="setModel('flux-1.1-ultra', 'Flux 1.1 Ultra'); open=false" class="model-btn"><i class="ph ph-image text-green-400"></i> Flux 1.1 Ultra</button>
-                                        <button @click="setModel('recraft-v3', 'Recraft V3'); open=false" class="model-btn"><i class="ph ph-paint-brush text-purple-400"></i> Recraft V3</button>
-                                        <button @click="setModel('dall-e-3', 'DALL-E 3'); open=false" class="model-btn"><i class="ph ph-image text-blue-400"></i> DALL-E 3</button>
-
-                                        <div class="cat-title">Другие</div>
-                                        <button @click="setModel('deepseek-r1', 'DeepSeek R1'); open=false" class="model-btn"><i class="ph ph-code text-blue-300"></i> DeepSeek R1</button>
-                                        <button @click="setModel('grok-3', 'xAI Grok 3'); open=false" class="model-btn"><i class="ph ph-hash text-white"></i> Grok 3</button>
-                                        <button @click="setModel('suno', 'Suno Music'); open=false" class="model-btn"><i class="ph ph-music-notes text-purple-500"></i> Suno Music</button>
+                                        <button @click="setModel('ideogram', 'Ideogram v2'); open=false" class="model-btn"><i class="ph ph-text-t text-orange-300"></i> Ideogram v2</button>
                                     </div>
                                 </div>
                             </div>
@@ -211,13 +208,11 @@
             async loadChat(id) { this.activeChatId = id; this.messages = []; this.sidebarOpen = false; try { const res = await fetch(`/api/chats/${id}`); if (res.ok) { this.messages = await res.json(); this.scrollToBottom(); } } catch (e) {} },
             setModel(id, name) { this.currentModel = id; this.currentModelName = name; if (this.messages.length > 0 && this.activeChatId) this.startNewChat(); },
             startNewChat() { this.activeChatId = null; this.messages = []; this.userInput = ''; this.$nextTick(() => this.$refs.chatInput.focus()); },
-            
             async sendMessage() {
                 if (!this.userInput.trim()) return;
                 const text = this.userInput; this.userInput = ''; this.$refs.chatInput.style.height = 'auto';
                 this.messages.push({ role: 'user', content: text, id: Date.now() });
                 this.scrollToBottom(); this.isTyping = true;
-
                 try {
                     const payload = { message: text, model: this.currentModel, temperature: parseFloat(this.temperature), web_search: this.webSearch };
                     let url = !this.activeChatId ? '/api/chats/new' : `/api/chats/${this.activeChatId}/message`;
