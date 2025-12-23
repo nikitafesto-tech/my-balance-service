@@ -295,11 +295,10 @@ async def create_new_chat(request: Request, data: dict = Body(...), db: Session 
     
     first_msg = data.get("message", "New Chat")
     selected_model = data.get("model", "gpt-4o")
-    
-    # Новые параметры
+    # Новые параметры от фронтенда
     temperature = data.get("temperature", 0.7)
     web_search = data.get("web_search", False)
-    attachment_url = data.get("attachment_url") # <--- НОВОЕ ПОЛЕ
+    attachment_url = data.get("attachment_url") # <--- ФОТО
     
     title = first_msg[:30] + "..." if len(first_msg) > 30 else first_msg
     
@@ -308,7 +307,6 @@ async def create_new_chat(request: Request, data: dict = Body(...), db: Session 
     db.commit()
     db.refresh(new_chat)
     
-    # Сохраняем сообщение пользователя
     msg = Message(chat_id=new_chat.id, role="user", content=first_msg)
     if attachment_url:
         msg.attachment_url = attachment_url
@@ -317,7 +315,7 @@ async def create_new_chat(request: Request, data: dict = Body(...), db: Session 
     
     cost = 0.0
     try:
-        # Передаем параметры в генерацию (включая файл)
+        # Вызываем ИИ, передаем все параметры (включая attachment_url)
         ai_reply, cost = await generate_ai_response(
             selected_model, 
             [{"role": "user", "content": first_msg}], 
@@ -331,7 +329,7 @@ async def create_new_chat(request: Request, data: dict = Body(...), db: Session 
     except Exception as e:
         ai_reply = f"Ошибка: {str(e)}"
 
-    # Списание
+    # Списание денег
     if cost > 0:
         user.balance -= cost
         if user.balance < 0: user.balance = 0
@@ -340,7 +338,8 @@ async def create_new_chat(request: Request, data: dict = Body(...), db: Session 
         await update_casdoor_balance(user.casdoor_id, user.balance)
 
     bot_msg = Message(chat_id=new_chat.id, role="assistant", content=ai_reply)
-    if ai_reply.startswith("!") or "[Generated]" in ai_reply:
+    # Если это сгенерированная картинка/видео, ссылка придет в тексте Markdown
+    if ai_reply.startswith("![") and "[Generated]" in ai_reply:
         try:
             bot_msg.image_url = ai_reply.split("(")[1].split(")")[0]
         except: pass
@@ -364,9 +363,8 @@ async def chat_reply(chat_id: int, request: Request, data: dict = Body(...), db:
     user_text = data.get("message")
     temperature = data.get("temperature", 0.7)
     web_search = data.get("web_search", False)
-    attachment_url = data.get("attachment_url") # <--- НОВОЕ ПОЛЕ
+    attachment_url = data.get("attachment_url")
     
-    # Сохраняем сообщение пользователя
     user_msg = Message(chat_id=chat.id, role="user", content=user_text)
     if attachment_url:
         user_msg.attachment_url = attachment_url
@@ -404,7 +402,7 @@ async def chat_reply(chat_id: int, request: Request, data: dict = Body(...), db:
         await update_casdoor_balance(user.casdoor_id, user.balance)
 
     bot_msg = Message(chat_id=chat.id, role="assistant", content=ai_reply)
-    if ai_reply.startswith("!") or "[Generated]" in ai_reply:
+    if ai_reply.startswith("![") and "[Generated]" in ai_reply:
         try:
             bot_msg.image_url = ai_reply.split("(")[1].split(")")[0]
         except: pass
@@ -422,16 +420,18 @@ async def chat_reply(chat_id: int, request: Request, data: dict = Body(...), db:
 
 @app.post("/api/upload")
 async def upload_file(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """Загрузка в S3"""
     user = get_current_user(request, db)
     if not user: raise HTTPException(401)
     
     content = await file.read()
+    # Эта функция теперь возвращает безопасное имя файла
     url = await upload_file_to_s3(content, file.filename, file.content_type)
     
     if not url: raise HTTPException(500, "S3 Upload Failed")
     return {"url": url, "filename": file.filename}
 
-# ==================== AUTH & PAYMENT ENDPOINTS (NO CHANGE) ====================
+# ==================== ОПЛАТА И AUTH (БЕЗ ИЗМЕНЕНИЙ) ====================
 
 @app.post("/auth/email/request-code")
 async def request_email_code(data: dict = Body(...), db: Session = Depends(get_db)):
@@ -491,7 +491,7 @@ async def payment_webhook(request: Request, db: Session = Depends(get_db)):
     except:
         return JSONResponse({"status": "error"}, 500)
 
-# === CALLBACKS (VK, GOOGLE, ETC) ===
+# === CALLBACKS (VK, GOOGLE, YANDEX, TG) ===
 
 @app.get("/login/vk-direct")
 def login_vk_direct():

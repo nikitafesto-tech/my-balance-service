@@ -5,7 +5,7 @@ from openai import AsyncOpenAI
 from fastapi import HTTPException
 from app.services.s3 import upload_url_to_s3
 
-# === НАСТРОЙКИ ===
+# === 1. НАСТРОЙКИ ===
 OPENROUTER_KEY = os.getenv("OPENROUTER_API_KEY")
 FAL_KEY = os.getenv("FAL_KEY")
 
@@ -19,7 +19,7 @@ if OPENROUTER_KEY:
     except Exception as e:
         print(f"⚠️ OpenAI Init Error: {e}")
 
-# === ПОЛНЫЙ КАТАЛОГ МОДЕЛЕЙ (ДЕКАБРЬ 2025) ===
+# === 2. ПОЛНЫЙ КАТАЛОГ МОДЕЛЕЙ (ДЕКАБРЬ 2025) ===
 MODEL_CONFIG = {
     # --- OPENAI (CHATGPT) ---
     "gpt-5.2":            {"type": "text", "id": "openai/gpt-5.2", "price_in": 2.5, "price_out": 10},
@@ -98,9 +98,16 @@ MODEL_CONFIG = {
     "llama-4-mav":        {"type": "text", "id": "meta-llama/llama-4-maverick", "price_in": 1, "price_out": 5},
     "llama-4-scout":      {"type": "text", "id": "meta-llama/llama-4-scout", "price_in": 1, "price_out": 5},
     "llama-3.3-70b":      {"type": "text", "id": "meta-llama/llama-3.3-70b-instruct:free", "price_in": 1, "price_out": 5},
+    
+    # --- ВИДЕО / ФОТО (FAL.AI) ---
+    "recraft-v3":         {"type": "image", "id": "fal-ai/recraft-v3", "price_fixed": 10},
+    "flux-1.1-ultra":     {"type": "image", "id": "fal-ai/flux-pro/v1.1-ultra", "price_fixed": 12},
+    "luma-ray-2":         {"type": "video", "id": "fal-ai/luma-dream-machine/ray-2", "price_fixed": 50},
+    "veo-3.1":            {"type": "video", "id": "fal-ai/veo-3.1", "price_fixed": 249},
 }
 
 def extract_image_url(text: str):
+    """(Устарело, но оставим для совместимости) Ищет ссылку на картинку в тексте"""
     if not text: return None
     match = re.search(r'(?:\[Файл:|!\[.*?\]\()((https?://\S+?)(?:\.png|\.jpg|\.jpeg|\.webp))(?:\)|\]|\s)', text, re.IGNORECASE)
     if match: return match.group(1)
@@ -118,20 +125,21 @@ async def generate_ai_response(
     # 1. Поиск модели
     model_info = MODEL_CONFIG.get(model_alias)
     if not model_info:
-        # Fallback на случай, если фронт прислал что-то странное
+        # Fallback
         model_info = MODEL_CONFIG["gpt-4o"]
 
     model_id = model_info["id"]
     model_type = model_info["type"]
 
-    # 2. Проверка баланса (мин. порог)
+    # 2. Проверка баланса
     if user_balance < 0.1:
         raise HTTPException(status_code=402, detail="Недостаточно средств. Пополните баланс.")
 
-    # Для Vision и медиа берем последний промпт
+    # Для Vision/Медиа берем последний промпт
     last_msg_obj = next((m for m in reversed(messages) if m["role"] == "user"), None)
     prompt = last_msg_obj["content"] if last_msg_obj else "Hello"
 
+    # === ТЕКСТОВЫЕ МОДЕЛИ (OpenRouter) ===
     if model_type == "text":
         if not text_client: raise Exception("OpenRouter Key is missing")
         
@@ -139,14 +147,15 @@ async def generate_ai_response(
         if web_search:
             final_messages.append({
                 "role": "system", 
-                "content": "You have access to the internet. Please search the web to provide the most accurate and up-to-date information."
+                "content": "You have access to the internet. Please search the web to provide accurate info."
             })
 
         for msg in messages:
             role = msg.get("role", "user")
             content = msg.get("content", "")
             
-            # VISION LOGIC: Если это последнее сообщение и есть файл
+            # VISION LOGIC: Если это последнее сообщение и есть прикрепленный файл
+            # Мы формируем структуру content как список
             if role == "user" and msg == last_msg_obj and attachment_url:
                 final_messages.append({
                     "role": "user",
@@ -156,6 +165,7 @@ async def generate_ai_response(
                     ]
                 })
             else:
+                # Обычное текстовое сообщение
                 final_messages.append({"role": role, "content": content})
 
         print(f"📝 REQUEST: {model_id} | Web: {web_search} | Attach: {bool(attachment_url)}")
@@ -173,7 +183,7 @@ async def generate_ai_response(
             
             reply_text = response.choices[0].message.content
             
-            # Расчет цены
+            # Расчет цены (Приблизительно)
             input_chars = sum(len(str(m)) for m in final_messages)
             output_chars = len(reply_text)
             
@@ -191,5 +201,31 @@ async def generate_ai_response(
             if "does not exist" in error_msg or "not found" in error_msg:
                 return f"⚠️ Модель {model_id} временно недоступна. Попробуйте другую.", 0
             raise e
+
+    # === МЕДИА МОДЕЛИ (Fal.ai) ===
+    elif model_type in ["video", "image"]:
+        if not FAL_KEY: raise Exception("FAL_KEY missing")
+        
+        cost = model_info.get("price_fixed", 10)
+        # Очищаем промпт для Fal.ai
+        clean_prompt = prompt
+        
+        print(f"🎨 MEDIA: {model_id} | Prompt: {clean_prompt[:30]}")
+        
+        args = {"prompt": clean_prompt}
+        if model_type == "image": args["image_size"] = "landscape_16_9"
+        
+        handler = await fal_client.submit_async(model_id, arguments=args)
+        result = await handler.get()
+        
+        media_url = None
+        if 'video' in result and 'url' in result['video']: media_url = result['video']['url']
+        elif 'images' in result: media_url = result['images'][0]['url']
+        elif 'file' in result: media_url = result['file']['url']
+        else: media_url = str(result)
+
+        saved_url = await upload_url_to_s3(media_url)
+        prefix = "!" if model_type in ["image", "video"] else ""
+        return f"{prefix}[Generated]({saved_url or media_url})", cost
 
     return "Тип модели не поддерживается", 0

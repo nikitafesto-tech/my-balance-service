@@ -19,7 +19,22 @@ def get_s3_client():
 async def upload_file_to_s3(file_bytes, filename: str, content_type: str) -> str:
     s3 = get_s3_client()
     if not s3: return None
-    unique_filename = f"{uuid.uuid4()}-{filename}"
+    
+    # === ИСПРАВЛЕНИЕ ОШИБКИ 400 ===
+    # Мы полностью убираем оригинальное имя файла (где могут быть пробелы и скобки)
+    # и оставляем только расширение.
+    _, ext = os.path.splitext(filename)
+    if not ext:
+        # Пытаемся угадать расширение, если его нет
+        if "jpeg" in content_type or "jpg" in content_type: ext = ".jpg"
+        elif "png" in content_type: ext = ".png"
+        elif "webp" in content_type: ext = ".webp"
+        elif "mp4" in content_type: ext = ".mp4"
+        else: ext = ".bin"
+        
+    unique_filename = f"{uuid.uuid4()}{ext}"
+    # ==============================
+    
     try:
         s3.put_object(Bucket=BUCKET_NAME, Key=unique_filename, Body=file_bytes, ContentType=content_type)
         return f"{ENDPOINT_URL}/{BUCKET_NAME}/{unique_filename}"
@@ -28,18 +43,16 @@ async def upload_file_to_s3(file_bytes, filename: str, content_type: str) -> str
         return None
 
 async def upload_url_to_s3(url: str) -> str:
-    """Умная загрузка: определяет картинка это или видео"""
+    """Скачивает файл по ссылке и заливает в S3 с чистым именем."""
     if not url: return None
     try:
         async with httpx.AsyncClient() as client:
-            resp = await client.get(url, timeout=60.0) # Увеличенный таймаут для видео
+            resp = await client.get(url, timeout=60.0)
             if resp.status_code != 200: return None
             file_bytes = resp.content
             
-            # Определяем тип контента из заголовков или расширения
             ctype = resp.headers.get("content-type", "")
-            ext = ".png" # fallback
-            
+            ext = ".png"
             if "video" in ctype or ".mp4" in url: 
                 ext = ".mp4"
                 ctype = "video/mp4"
