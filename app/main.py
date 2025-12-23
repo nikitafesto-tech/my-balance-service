@@ -25,7 +25,6 @@ from sqlalchemy import desc
 from yookassa import Configuration, Payment as YooPayment
 
 # === ИМПОРТЫ ДЛЯ ИИ ===
-# Используем app.services, как в вашем рабочем коде
 from app.services.ai_generation import generate_ai_response
 
 # === ИМПОРТЫ ИЗ ВАШИХ МОДУЛЕЙ ===
@@ -289,7 +288,6 @@ def get_chat_history(chat_id: int, request: Request, db: Session = Depends(get_d
         })
     return messages
 
-# === ОБНОВЛЕННАЯ ФУНКЦИЯ СОЗДАНИЯ ЧАТА ===
 @app.post("/api/chats/new")
 async def create_new_chat(request: Request, data: dict = Body(...), db: Session = Depends(get_db)):
     user = get_current_user(request, db)
@@ -297,9 +295,11 @@ async def create_new_chat(request: Request, data: dict = Body(...), db: Session 
     
     first_msg = data.get("message", "New Chat")
     selected_model = data.get("model", "gpt-4o")
-    # Получаем новые параметры
+    
+    # Новые параметры
     temperature = data.get("temperature", 0.7)
     web_search = data.get("web_search", False)
+    attachment_url = data.get("attachment_url") # <--- НОВОЕ ПОЛЕ
     
     title = first_msg[:30] + "..." if len(first_msg) > 30 else first_msg
     
@@ -308,32 +308,35 @@ async def create_new_chat(request: Request, data: dict = Body(...), db: Session 
     db.commit()
     db.refresh(new_chat)
     
+    # Сохраняем сообщение пользователя
     msg = Message(chat_id=new_chat.id, role="user", content=first_msg)
+    if attachment_url:
+        msg.attachment_url = attachment_url
     db.add(msg)
     db.commit()
     
     cost = 0.0
     try:
-        # Вызываем функцию, которая возвращает ответ и ЦЕНУ
+        # Передаем параметры в генерацию (включая файл)
         ai_reply, cost = await generate_ai_response(
             selected_model, 
             [{"role": "user", "content": first_msg}], 
             user.balance,
             temperature=temperature,
-            web_search=web_search
+            web_search=web_search,
+            attachment_url=attachment_url
         )
     except HTTPException as e:
         ai_reply = f"⚠️ {e.detail}"
     except Exception as e:
         ai_reply = f"Ошибка: {str(e)}"
 
-    # СПИСАНИЕ БАЛАНСА (Если успешно и есть цена)
+    # Списание
     if cost > 0:
         user.balance -= cost
         if user.balance < 0: user.balance = 0
         db.add(user)
         db.commit()
-        # Обновляем в Casdoor, чтобы не было рассинхрона
         await update_casdoor_balance(user.casdoor_id, user.balance)
 
     bot_msg = Message(chat_id=new_chat.id, role="assistant", content=ai_reply)
@@ -346,11 +349,10 @@ async def create_new_chat(request: Request, data: dict = Body(...), db: Session 
     db.commit()
     
     return {"chat_id": new_chat.id, "title": title, "messages": [
-        {"role": "user", "content": first_msg},
+        {"role": "user", "content": first_msg, "attachment_url": attachment_url},
         {"role": "assistant", "content": ai_reply, "image_url": bot_msg.image_url}
     ]}
 
-# === ОБНОВЛЕННАЯ ФУНКЦИЯ ОТВЕТА ===
 @app.post("/api/chats/{chat_id}/message")
 async def chat_reply(chat_id: int, request: Request, data: dict = Body(...), db: Session = Depends(get_db)):
     user = get_current_user(request, db)
@@ -362,8 +364,12 @@ async def chat_reply(chat_id: int, request: Request, data: dict = Body(...), db:
     user_text = data.get("message")
     temperature = data.get("temperature", 0.7)
     web_search = data.get("web_search", False)
+    attachment_url = data.get("attachment_url") # <--- НОВОЕ ПОЛЕ
     
+    # Сохраняем сообщение пользователя
     user_msg = Message(chat_id=chat.id, role="user", content=user_text)
+    if attachment_url:
+        user_msg.attachment_url = attachment_url
     db.add(user_msg)
     chat.updated_at = datetime.utcnow()
     db.commit()
@@ -382,14 +388,14 @@ async def chat_reply(chat_id: int, request: Request, data: dict = Body(...), db:
             messages_payload, 
             user.balance, 
             temperature=temperature,
-            web_search=web_search
+            web_search=web_search,
+            attachment_url=attachment_url
         )
     except HTTPException as e:
         ai_reply = f"⚠️ {e.detail}"
     except Exception as e:
         ai_reply = f"Ошибка: {str(e)}"
     
-    # Списание
     if cost > 0:
         user.balance -= cost
         if user.balance < 0: user.balance = 0
@@ -409,7 +415,7 @@ async def chat_reply(chat_id: int, request: Request, data: dict = Body(...), db:
     return {
         "chat_id": chat.id,
         "messages": [
-            {"role": "user", "content": user_text},
+            {"role": "user", "content": user_text, "attachment_url": attachment_url},
             {"role": "assistant", "content": ai_reply, "image_url": bot_msg.image_url}
         ]
     }

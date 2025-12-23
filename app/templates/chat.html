@@ -24,33 +24,14 @@
             </button>
         </div>
 
-        <div class="px-4 mb-4 space-y-4">
-            <button @click="webSearch = !webSearch" 
-                class="w-full flex items-center justify-between px-3 py-2 rounded-lg border text-xs font-medium transition-all"
-                :class="webSearch ? 'bg-blue-500/20 border-blue-500 text-blue-400' : 'bg-white/5 border-transparent text-gray-400'">
-                <div class="flex items-center gap-2">
-                    <i class="ph ph-globe text-lg"></i>
-                    <span>Web Search</span>
-                </div>
-                <div class="w-8 h-4 rounded-full relative transition-colors" :class="webSearch ? 'bg-blue-500' : 'bg-gray-600'">
-                    <div class="w-2 h-2 bg-white rounded-full absolute top-1 transition-all" :style="webSearch ? 'right: 4px' : 'left: 4px'"></div>
-                </div>
-            </button>
-
-            <div class="bg-white/5 rounded-lg p-3 border border-white/5">
-                <div class="flex justify-between text-xs text-gray-400 mb-2">
-                    <span>Точность</span>
-                    <span>Креатив</span>
-                </div>
-                <input type="range" min="0" max="1" step="0.1" x-model="temperature" class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer">
-                <div class="text-center text-xs text-green mt-1 font-mono" x-text="temperature"></div>
-            </div>
-        </div>
-
         <div class="flex-1 overflow-y-auto px-2 space-y-1">
             <div class="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">История</div>
             <template x-for="chat in chatHistory" :key="chat.id">
-                <button @click="loadChat(chat.id)" class="w-full text-left flex items-center gap-3 px-3 py-3 rounded-lg transition group" :class="activeChatId === chat.id ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'">
+                <button 
+                    @click="loadChat(chat.id)"
+                    class="w-full text-left flex items-center gap-3 px-3 py-3 rounded-lg transition group"
+                    :class="activeChatId === chat.id ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'"
+                >
                     <i class="ph ph-chat-circle text-lg"></i>
                     <div class="flex-1 truncate text-sm" x-text="chat.title"></div>
                 </button>
@@ -86,7 +67,9 @@
                     <i class="ph ph-magic-wand text-3xl text-white"></i>
                 </div>
                 <h2 class="text-2xl font-bold mb-2">Чем могу помочь?</h2>
-                <div class="text-gray-500 max-w-md mb-8">Модель: <span class="text-green font-bold" x-text="currentModelName"></span></div>
+                <div class="text-gray-500 max-w-md mb-8">
+                    Модель: <span class="text-green font-bold" x-text="currentModelName"></span>
+                </div>
             </div>
 
             <template x-for="msg in messages" :key="msg.id">
@@ -94,16 +77,30 @@
                     <div x-show="msg.role === 'assistant'" class="w-8 h-8 rounded-full bg-green flex-shrink-0 flex items-center justify-center mt-1">
                         <i class="ph ph-robot text-white text-lg"></i>
                     </div>
+                    
                     <div class="flex flex-col max-w-[85%]" :class="msg.role === 'user' ? 'items-end' : 'items-start'">
-                        <div class="px-5 py-3.5 rounded-2xl text-[15px] leading-relaxed shadow-sm" :class="msg.role === 'user' ? 'bg-white/10 text-white rounded-tr-sm' : 'bg-transparent text-gray-100 pl-0'">
+                        <div class="px-5 py-3.5 rounded-2xl text-[15px] leading-relaxed shadow-sm"
+                             :class="msg.role === 'user' ? 'bg-white/10 text-white rounded-tr-sm' : 'bg-transparent text-gray-100 pl-0'">
+                            
                             <div x-html="parseMarkdown(msg.content)"></div>
+                            
                             <template x-if="msg.image_url && msg.image_url.endsWith('.mp4')">
                                 <div class="mt-3 rounded-lg overflow-hidden border border-white/10 w-full max-w-md">
-                                    <video controls playsinline class="w-full"><source :src="msg.image_url" type="video/mp4"></video>
+                                    <video controls playsinline class="w-full">
+                                        <source :src="msg.image_url" type="video/mp4">
+                                        Ваш браузер не поддерживает видео.
+                                    </video>
                                 </div>
                             </template>
+                            
                             <template x-if="msg.image_url && !msg.image_url.endsWith('.mp4')">
-                                <img :src="msg.image_url" class="mt-3 rounded-lg max-w-full border border-white/10">
+                                <img :src="msg.image_url" class="mt-3 rounded-lg max-w-full border border-white/10 object-cover cursor-pointer" onclick="window.open(this.src)">
+                            </template>
+
+                            <template x-if="msg.attachment_url">
+                                <div class="mt-2">
+                                    <img :src="msg.attachment_url" class="w-32 h-24 object-cover rounded-lg border border-white/10 opacity-70 hover:opacity-100 transition cursor-pointer" onclick="window.open(this.src)">
+                                </div>
                             </template>
                         </div>
                     </div>
@@ -123,60 +120,167 @@
 
         <div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-dark via-dark to-transparent pt-10 pb-6 px-4">
             <div class="max-w-3xl mx-auto relative">
+                
+                <div x-show="attachedFileUrl" x-transition class="absolute bottom-full left-0 mb-2 ml-2 bg-[#1a1a1a] border border-white/10 p-2 rounded-xl flex items-center gap-3 shadow-xl z-20">
+                    <div class="relative group">
+                        <img :src="attachedFileUrl" class="w-12 h-12 rounded-lg object-cover bg-black">
+                        <button @click="attachedFileUrl = null; $refs.fileInput.value = ''" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition shadow-sm hover:scale-110">✕</button>
+                    </div>
+                    <div class="text-xs text-gray-400 mr-2">
+                        <div class="font-bold text-white">Изображение</div>
+                        Vision анализ включен
+                    </div>
+                </div>
+
                 <div class="bg-sidebar border border-white/10 rounded-2xl shadow-lg flex flex-col transition-colors focus-within:border-white/20">
-                    <textarea x-model="userInput" @keydown.enter.prevent="sendMessage()" rows="1" placeholder="Запрос..." class="w-full bg-transparent text-white placeholder-gray-500 px-4 py-4 resize-none outline-none max-h-48 overflow-y-auto" style="min-height: 56px;" x-ref="chatInput" @input="$el.style.height = 'auto'; $el.style.height = $el.scrollHeight + 'px'"></textarea>
+                    <textarea x-model="userInput" @keydown.enter.prevent="sendMessage()" rows="1" placeholder="Спроси нейросеть..." 
+                        class="w-full bg-transparent text-white placeholder-gray-500 px-4 py-4 resize-none outline-none max-h-48 overflow-y-auto"
+                        style="min-height: 56px;" x-ref="chatInput" @input="$el.style.height = 'auto'; $el.style.height = $el.scrollHeight + 'px'"></textarea>
 
                     <div class="flex items-center justify-between px-3 pb-3 pt-1">
                         <div class="flex items-center gap-2">
+                            
                             <div class="relative" x-data="{ open: false }">
                                 <button @click="open = !open" class="flex items-center gap-2 bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-lg transition border border-white/5 text-xs sm:text-sm">
                                     <i class="ph ph-lightning text-green"></i>
                                     <span class="font-semibold" x-text="currentModelName">GPT-4o</span>
                                     <i class="ph ph-caret-down text-gray-500"></i>
                                 </button>
-                                <div x-show="open" @click.outside="open = false" x-transition class="absolute bottom-full left-0 mb-2 w-72 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden max-h-96 flex flex-col">
+                                
+                                <div x-show="open" @click.outside="open = false" x-transition class="absolute bottom-full left-0 mb-2 w-80 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden max-h-[80vh] flex flex-col">
                                     <div class="p-2 space-y-1 overflow-y-auto custom-scrollbar flex-1">
-                                        <div class="cat-title">OpenAI</div>
+                                        
+                                        <div class="cat-title">OpenAI (GPT-5/4)</div>
+                                        <button @click="setModel('gpt-5.2', 'GPT 5.2'); open=false" class="model-btn"><i class="ph ph-lightning text-yellow-400"></i> GPT 5.2</button>
+                                        <button @click="setModel('gpt-5.2-pro', 'GPT 5.2 Pro'); open=false" class="model-btn"><i class="ph ph-lightning text-yellow-400"></i> GPT 5.2 Pro</button>
+                                        <button @click="setModel('gpt-5.2-chat', 'GPT 5.2 Chat'); open=false" class="model-btn"><i class="ph ph-chat text-yellow-400"></i> GPT 5.2 Chat</button>
+                                        
+                                        <button @click="setModel('gpt-5.1', 'GPT 5.1'); open=false" class="model-btn"><i class="ph ph-lightning text-orange-400"></i> GPT 5.1</button>
+                                        <button @click="setModel('gpt-5.1-codex', 'GPT 5.1 Codex'); open=false" class="model-btn"><i class="ph ph-code text-orange-400"></i> GPT 5.1 Codex</button>
+                                        <button @click="setModel('gpt-5.1-codex-max', 'GPT 5.1 Codex Max'); open=false" class="model-btn"><i class="ph ph-code text-orange-400"></i> Codex Max</button>
+                                        <button @click="setModel('gpt-5.1-codex-mini', 'GPT 5.1 Codex Mini'); open=false" class="model-btn"><i class="ph ph-code text-orange-400"></i> Codex Mini</button>
+                                        <button @click="setModel('gpt-5.1-chat', 'GPT 5.1 Chat'); open=false" class="model-btn"><i class="ph ph-chat text-orange-400"></i> GPT 5.1 Chat</button>
+                                        
+                                        <button @click="setModel('gpt-5', 'GPT 5'); open=false" class="model-btn"><i class="ph ph-lightning text-red-400"></i> GPT 5</button>
+                                        <button @click="setModel('gpt-5-mini', 'GPT 5 Mini'); open=false" class="model-btn"><i class="ph ph-lightning text-red-300"></i> GPT 5 Mini</button>
+                                        <button @click="setModel('gpt-5-nano', 'GPT 5 Nano'); open=false" class="model-btn"><i class="ph ph-lightning text-red-200"></i> GPT 5 Nano</button>
+                                        <button @click="setModel('gpt-5-codex', 'GPT 5 Codex'); open=false" class="model-btn"><i class="ph ph-code text-red-400"></i> GPT 5 Codex</button>
+                                        <button @click="setModel('gpt-5-chat', 'GPT 5 Chat'); open=false" class="model-btn"><i class="ph ph-chat text-red-400"></i> GPT 5 Chat</button>
+
                                         <button @click="setModel('gpt-4o', 'GPT-4o'); open=false" class="model-btn"><i class="ph ph-brain text-green-500"></i> GPT-4o</button>
                                         <button @click="setModel('gpt-4o-mini', 'GPT-4o Mini'); open=false" class="model-btn"><i class="ph ph-brain text-green-300"></i> GPT-4o Mini</button>
+                                        
+                                        <button @click="setModel('gpt-4.1', 'GPT 4.1'); open=false" class="model-btn"><i class="ph ph-brain text-green-400"></i> GPT 4.1</button>
+                                        <button @click="setModel('gpt-4.1-mini', 'GPT 4.1 Mini'); open=false" class="model-btn"><i class="ph ph-brain text-green-300"></i> GPT 4.1 Mini</button>
+                                        <button @click="setModel('gpt-4.1-nano', 'GPT 4.1 Nano'); open=false" class="model-btn"><i class="ph ph-brain text-green-200"></i> GPT 4.1 Nano</button>
+
+                                        <button @click="setModel('gpt-oss-120b', 'GPT OSS 120B'); open=false" class="model-btn"><i class="ph ph-cube text-gray-400"></i> GPT OSS 120B</button>
+                                        <button @click="setModel('gpt-oss-20b', 'GPT OSS 20B'); open=false" class="model-btn"><i class="ph ph-cube text-gray-400"></i> GPT OSS 20B</button>
+
                                         <button @click="setModel('o1-preview', 'o1 Preview'); open=false" class="model-btn"><i class="ph ph-lightbulb text-white"></i> o1 Preview</button>
                                         <button @click="setModel('o1-mini', 'o1 Mini'); open=false" class="model-btn"><i class="ph ph-lightbulb text-gray-400"></i> o1 Mini</button>
 
-                                        <div class="cat-title">Anthropic</div>
-                                        <button @click="setModel('claude-3.5-sonnet', 'Claude 3.5'); open=false" class="model-btn"><i class="ph ph-robot text-orange-400"></i> Claude 3.5 Sonnet</button>
-                                        <button @click="setModel('claude-3-opus', 'Claude 3 Opus'); open=false" class="model-btn"><i class="ph ph-crown text-yellow-500"></i> Claude 3 Opus</button>
+                                        <div class="cat-title">Anthropic (Claude)</div>
+                                        <button @click="setModel('claude-4.5-sonnet', 'Claude 4.5 Sonnet'); open=false" class="model-btn"><i class="ph ph-crown text-purple-400"></i> Claude 4.5 Sonnet</button>
+                                        <button @click="setModel('claude-opus-4.5', 'Claude 4.5 Opus'); open=false" class="model-btn"><i class="ph ph-crown text-purple-500"></i> Claude 4.5 Opus</button>
+                                        <button @click="setModel('claude-haiku-4.5', 'Claude 4.5 Haiku'); open=false" class="model-btn"><i class="ph ph-wind text-purple-300"></i> Claude 4.5 Haiku</button>
+                                        
+                                        <button @click="setModel('claude-4-sonnet', 'Claude 4 Sonnet'); open=false" class="model-btn"><i class="ph ph-robot text-orange-400"></i> Claude 4 Sonnet</button>
+                                        <button @click="setModel('claude-opus-4', 'Claude 4 Opus'); open=false" class="model-btn"><i class="ph ph-crown text-orange-500"></i> Claude 4 Opus</button>
+                                        
+                                        <button @click="setModel('claude-3.7-sonnet', 'Claude 3.7 Sonnet'); open=false" class="model-btn"><i class="ph ph-robot text-orange-400"></i> Claude 3.7 Sonnet</button>
+                                        <button @click="setModel('claude-3.7-thinking', 'Claude 3.7 Thinking'); open=false" class="model-btn"><i class="ph ph-brain text-orange-400"></i> Claude 3.7 Thinking</button>
+                                        
+                                        <button @click="setModel('claude-3.5-sonnet', 'Claude 3.5 Sonnet'); open=false" class="model-btn"><i class="ph ph-robot text-orange-300"></i> Claude 3.5 Sonnet</button>
+                                        <button @click="setModel('claude-3-opus', 'Claude 3 Opus'); open=false" class="model-btn"><i class="ph ph-crown text-orange-500"></i> Claude 3 Opus</button>
+                                        <button @click="setModel('claude-3-haiku', 'Claude 3 Haiku'); open=false" class="model-btn"><i class="ph ph-wind text-gray-400"></i> Claude 3 Haiku</button>
 
-                                        <div class="cat-title">Google</div>
-                                        <button @click="setModel('gemini-pro-1.5', 'Gemini Pro 1.5'); open=false" class="model-btn"><i class="ph ph-star text-blue-400"></i> Gemini Pro 1.5</button>
-                                        <button @click="setModel('gemini-flash-1.5', 'Gemini Flash 1.5'); open=false" class="model-btn"><i class="ph ph-lightning text-yellow-400"></i> Gemini Flash 1.5</button>
+                                        <div class="cat-title">Google (Gemini)</div>
+                                        <button @click="setModel('gemini-3-pro', 'Gemini 3 Pro'); open=false" class="model-btn"><i class="ph ph-star text-blue-400"></i> Gemini 3 Pro</button>
+                                        <button @click="setModel('gemini-3-flash', 'Gemini 3 Flash'); open=false" class="model-btn"><i class="ph ph-lightning text-blue-300"></i> Gemini 3 Flash</button>
+                                        <button @click="setModel('gemini-2.5-flash', 'Gemini 2.5 Flash'); open=false" class="model-btn"><i class="ph ph-lightning text-blue-300"></i> Gemini 2.5 Flash</button>
+                                        <button @click="setModel('gemini-2.5-lite', 'Gemini 2.5 Lite'); open=false" class="model-btn"><i class="ph ph-lightning text-blue-200"></i> Gemini 2.5 Lite</button>
+                                        <button @click="setModel('gemini-free', 'Gemini Free'); open=false" class="model-btn"><i class="ph ph-gift text-green-400"></i> Gemini Free</button>
 
-                                        <div class="cat-title">DeepSeek & Grok</div>
-                                        <button @click="setModel('deepseek-v3', 'DeepSeek V3'); open=false" class="model-btn"><i class="ph ph-code text-blue-300"></i> DeepSeek V3</button>
-                                        <button @click="setModel('grok-2', 'Grok 2 (Vision)'); open=false" class="model-btn"><i class="ph ph-hash text-white"></i> Grok 2 Vision</button>
-                                        <button @click="setModel('sonar-online', 'Perplexity Online'); open=false" class="model-btn"><i class="ph ph-globe text-teal-400"></i> Perplexity Online</button>
+                                        <div class="cat-title">xAI (Grok)</div>
+                                        <button @click="setModel('grok-4.1-fast', 'Grok 4.1 Fast'); open=false" class="model-btn"><i class="ph ph-hash text-white"></i> Grok 4.1 Fast</button>
+                                        <button @click="setModel('grok-4', 'Grok 4'); open=false" class="model-btn"><i class="ph ph-hash text-white"></i> Grok 4</button>
+                                        <button @click="setModel('grok-4-fast', 'Grok 4 Fast'); open=false" class="model-btn"><i class="ph ph-hash text-gray-300"></i> Grok 4 Fast</button>
+                                        <button @click="setModel('grok-3', 'Grok 3'); open=false" class="model-btn"><i class="ph ph-hash text-gray-400"></i> Grok 3</button>
+                                        <button @click="setModel('grok-code-fast', 'Grok Code Fast'); open=false" class="model-btn"><i class="ph ph-code text-white"></i> Grok Code Fast</button>
 
-                                        <div class="cat-title">Видео (Генерация)</div>
-                                        <button @click="setModel('kling-1.5', 'Kling 1.5 Pro'); open=false" class="model-btn"><i class="ph ph-film-strip text-purple-500"></i> Kling 1.5 Pro</button>
-                                        <button @click="setModel('minimax', 'Minimax'); open=false" class="model-btn"><i class="ph ph-video text-blue-400"></i> Minimax</button>
-                                        <button @click="setModel('runway-gen3', 'Runway Gen-3'); open=false" class="model-btn"><i class="ph ph-film-strip text-pink-500"></i> Runway Gen-3</button>
-                                        <button @click="setModel('luma-ray', 'Luma Ray'); open=false" class="model-btn"><i class="ph ph-aperture text-yellow-400"></i> Luma Ray</button>
+                                        <div class="cat-title">DeepSeek</div>
+                                        <button @click="setModel('deepseek-v3.2', 'DeepSeek V3.2'); open=false" class="model-btn"><i class="ph ph-code text-cyan-400"></i> DeepSeek V3.2</button>
+                                        <button @click="setModel('deepseek-3.1', 'DeepSeek 3.1'); open=false" class="model-btn"><i class="ph ph-code text-cyan-500"></i> DeepSeek 3.1</button>
+                                        <button @click="setModel('deepseek-v3', 'DeepSeek V3'); open=false" class="model-btn"><i class="ph ph-code text-cyan-600"></i> DeepSeek V3</button>
+                                        <button @click="setModel('deepseek-r1', 'DeepSeek R1'); open=false" class="model-btn"><i class="ph ph-brain text-cyan-400"></i> DeepSeek R1</button>
+                                        <button @click="setModel('deepseek-nex', 'DeepSeek Nex'); open=false" class="model-btn"><i class="ph ph-code text-gray-400"></i> DeepSeek Nex</button>
 
-                                        <div class="cat-title">Изображения</div>
-                                        <button @click="setModel('flux-pro', 'Flux 1.1 Pro'); open=false" class="model-btn"><i class="ph ph-image text-green-400"></i> Flux 1.1 Pro</button>
-                                        <button @click="setModel('recraft-v3', 'Recraft V3'); open=false" class="model-btn"><i class="ph ph-paint-brush text-red-400"></i> Recraft V3</button>
-                                        <button @click="setModel('midjourney', 'Midjourney v6'); open=false" class="model-btn"><i class="ph ph-image text-white"></i> Midjourney v6</button>
-                                        <button @click="setModel('ideogram', 'Ideogram v2'); open=false" class="model-btn"><i class="ph ph-text-t text-orange-300"></i> Ideogram v2</button>
+                                        <div class="cat-title">Perplexity</div>
+                                        <button @click="setModel('sonar-deep', 'Sonar Deep Research'); open=false" class="model-btn"><i class="ph ph-globe text-teal-400"></i> Sonar Deep Research</button>
+                                        <button @click="setModel('sonar', 'Sonar'); open=false" class="model-btn"><i class="ph ph-magnifying-glass text-teal-300"></i> Sonar</button>
+                                        <button @click="setModel('sonar-pro', 'Sonar Pro Search'); open=false" class="model-btn"><i class="ph ph-magnifying-glass text-teal-500"></i> Sonar Pro Search</button>
+                                        <button @click="setModel('sonar-reasoning', 'Sonar Reasoning'); open=false" class="model-btn"><i class="ph ph-brain text-teal-200"></i> Sonar Reasoning</button>
+
+                                        <div class="cat-title">Moonshot</div>
+                                        <button @click="setModel('kimi-k2', 'Kimi k2'); open=false" class="model-btn"><i class="ph ph-moon text-indigo-300"></i> Kimi k2</button>
+                                        <button @click="setModel('kimi-k2-think', 'Kimi k2 Thinking'); open=false" class="model-btn"><i class="ph ph-brain text-indigo-400"></i> Kimi k2 Thinking</button>
+                                        <button @click="setModel('kimi-free', 'Kimi Free'); open=false" class="model-btn"><i class="ph ph-gift text-indigo-200"></i> Kimi Free</button>
+
+                                        <div class="cat-title">Mistral</div>
+                                        <button @click="setModel('mistral-small', 'Mistral Small'); open=false" class="model-btn"><i class="ph ph-wind text-indigo-400"></i> Mistral Small</button>
+                                        <button @click="setModel('mistral-nemo', 'Mistral Nemo'); open=false" class="model-btn"><i class="ph ph-fish text-indigo-300"></i> Mistral Nemo</button>
+                                        <button @click="setModel('mistral-24b', 'Mistral 24B'); open=false" class="model-btn"><i class="ph ph-wind text-indigo-500"></i> Mistral 24B</button>
+
+                                        <div class="cat-title">Meta (LLaMA)</div>
+                                        <button @click="setModel('llama-4-mav', 'LLaMA 4 Maverick'); open=false" class="model-btn"><i class="ph ph-horse text-blue-500"></i> LLaMA 4 Maverick</button>
+                                        <button @click="setModel('llama-4-scout', 'LLaMA 4 Scout'); open=false" class="model-btn"><i class="ph ph-horse text-blue-400"></i> LLaMA 4 Scout</button>
+                                        <button @click="setModel('llama-3.3-70b', 'LLaMA 3.3 70B'); open=false" class="model-btn"><i class="ph ph-horse text-blue-300"></i> LLaMA 3.3 70B</button>
+
+                                        <div class="cat-title">Медиа (Видео/Фото)</div>
+                                        <button @click="setModel('veo-3.1', 'Veo 3.1 (Video)'); open=false" class="model-btn"><i class="ph ph-film-strip text-red-500"></i> Veo 3.1</button>
+                                        <button @click="setModel('sora-2', 'Sora 2 (Video)'); open=false" class="model-btn"><i class="ph ph-video text-pink-500"></i> Sora 2</button>
+                                        <button @click="setModel('recraft-v3', 'Recraft V3 (Image)'); open=false" class="model-btn"><i class="ph ph-paint-brush text-purple-400"></i> Recraft V3</button>
+                                        <button @click="setModel('flux-1.1-ultra', 'Flux Ultra (Image)'); open=false" class="model-btn"><i class="ph ph-image text-green-400"></i> Flux 1.1 Ultra</button>
                                     </div>
                                 </div>
                             </div>
 
+                            <div class="relative" x-data="{ open: false }">
+                                <button @click="open = !open" class="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition" title="Настройки">
+                                    <i class="ph ph-gear text-xl"></i>
+                                </button>
+                                <div x-show="open" @click.outside="open = false" x-transition class="absolute bottom-full left-0 mb-2 w-64 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl z-50 p-3">
+                                    
+                                    <button @click="webSearch = !webSearch" class="w-full flex items-center justify-between px-3 py-2 rounded-lg border text-xs font-medium transition-all mb-3"
+                                        :class="webSearch ? 'bg-blue-500/20 border-blue-500 text-blue-400' : 'bg-white/5 border-transparent text-gray-400'">
+                                        <div class="flex items-center gap-2">
+                                            <i class="ph ph-globe text-lg"></i>
+                                            <span>Веб-поиск</span>
+                                        </div>
+                                        <div class="w-8 h-4 rounded-full relative transition-colors" :class="webSearch ? 'bg-blue-500' : 'bg-gray-600'">
+                                            <div class="w-2 h-2 bg-white rounded-full absolute top-1 transition-all" :style="webSearch ? 'right: 4px' : 'left: 4px'"></div>
+                                        </div>
+                                    </button>
+
+                                    <div class="text-xs text-gray-400 mb-1 flex justify-between">
+                                        <span>Точность</span>
+                                        <span>Креатив</span>
+                                    </div>
+                                    <input type="range" min="0" max="1" step="0.1" x-model="temperature" class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                                    <div class="text-center text-xs text-green mt-1 font-mono" x-text="temperature"></div>
+                                </div>
+                            </div>
+
                             <input type="file" x-ref="fileInput" class="hidden" @change="uploadFile($event)">
-                            <button @click="$refs.fileInput.click()" class="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition" title="Прикрепить фото">
+                            <button @click="$refs.fileInput.click()" class="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition" title="Прикрепить файл">
                                 <i class="ph ph-paperclip text-xl"></i>
                             </button>
                         </div>
 
-                        <button @click="sendMessage()" class="p-2 rounded-xl transition-all duration-200" :class="userInput.trim() ? 'bg-white text-black hover:bg-gray-200' : 'bg-white/10 text-gray-500 cursor-not-allowed'" :disabled="!userInput.trim()">
+                        <button @click="sendMessage()" class="p-2 rounded-xl transition-all duration-200" 
+                            :class="userInput.trim() || attachedFileUrl ? 'bg-white text-black hover:bg-gray-200' : 'bg-white/10 text-gray-500 cursor-not-allowed'" 
+                            :disabled="!userInput.trim() && !attachedFileUrl">
                             <i class="ph ph-arrow-up text-xl font-bold"></i>
                         </button>
                     </div>
@@ -187,50 +291,157 @@
 </div>
 
 <style>
-    .cat-title { padding: 4px 12px; font-size: 10px; color: #888; font-weight: 700; text-transform: uppercase; margin-top: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; }
-    .model-btn { width: 100%; text-align: left; padding: 8px 12px; border-radius: 8px; font-size: 13px; display: flex; align-items: center; gap: 8px; transition: all 0.2s; }
-    .model-btn:hover { background: rgba(255,255,255,0.05); color: white; }
+    .cat-title { 
+        padding: 6px 12px; font-size: 11px; color: #888; font-weight: 700; text-transform: uppercase; 
+        margin-top: 8px; background: rgba(255,255,255,0.05); border-radius: 6px; letter-spacing: 0.05em; 
+    }
+    .model-btn { 
+        width: 100%; text-align: left; padding: 10px 12px; border-radius: 8px; 
+        font-size: 13px; display: flex; align-items: center; gap: 10px; 
+        transition: all 0.2s; color: #e5e7eb; 
+    }
+    .model-btn:hover { background: rgba(255,255,255,0.1); color: white; transform: translateX(2px); }
+    .model-btn i { font-size: 16px; width: 20px; display: flex; justify-content: center; }
+    
     .custom-scrollbar::-webkit-scrollbar { width: 4px; }
     .custom-scrollbar::-webkit-scrollbar-track { background: #1a1a1a; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #444; border-radius: 2px; }
 </style>
 
 <script>
     function appLogic() {
         return {
-            sidebarOpen: false, isTyping: false,
-            currentModel: 'gpt-4o', currentModelName: 'GPT-4o',
-            userInput: '', activeChatId: null, chatHistory: [], messages: [],
-            temperature: 0.7, webSearch: false,
+            sidebarOpen: false, 
+            isTyping: false,
+            currentModel: 'gpt-4o', 
+            currentModelName: 'GPT-4o',
+            userInput: '', 
+            attachedFileUrl: null,
+            activeChatId: null, 
+            chatHistory: [], 
+            messages: [],
+            temperature: 0.7, 
+            webSearch: false,
             
             async init() { await this.loadHistory(); },
-            async loadHistory() { try { const res = await fetch('/api/chats'); if (res.ok) this.chatHistory = await res.json(); } catch (e) {} },
-            async loadChat(id) { this.activeChatId = id; this.messages = []; this.sidebarOpen = false; try { const res = await fetch(`/api/chats/${id}`); if (res.ok) { this.messages = await res.json(); this.scrollToBottom(); } } catch (e) {} },
-            setModel(id, name) { this.currentModel = id; this.currentModelName = name; if (this.messages.length > 0 && this.activeChatId) this.startNewChat(); },
-            startNewChat() { this.activeChatId = null; this.messages = []; this.userInput = ''; this.$nextTick(() => this.$refs.chatInput.focus()); },
+
+            async loadHistory() { 
+                try { const res = await fetch('/api/chats'); if (res.ok) this.chatHistory = await res.json(); } catch (e) {} 
+            },
+
+            async loadChat(id) { 
+                this.activeChatId = id; 
+                this.messages = []; 
+                this.sidebarOpen = false; 
+                try { 
+                    const res = await fetch(`/api/chats/${id}`); 
+                    if (res.ok) { 
+                        this.messages = await res.json(); 
+                        this.scrollToBottom(); 
+                    } 
+                } catch (e) {} 
+            },
+
+            setModel(id, name) { 
+                this.currentModel = id; 
+                this.currentModelName = name; 
+                // Если меняем модель в существующем чате, лучше создать новый, чтобы контекст не сломался
+                if (this.messages.length > 0 && this.activeChatId) this.startNewChat(); 
+            },
+
+            startNewChat() { 
+                this.activeChatId = null; 
+                this.messages = []; 
+                this.userInput = ''; 
+                this.attachedFileUrl = null; 
+                this.$nextTick(() => this.$refs.chatInput.focus()); 
+            },
+            
             async sendMessage() {
-                if (!this.userInput.trim()) return;
-                const text = this.userInput; this.userInput = ''; this.$refs.chatInput.style.height = 'auto';
-                this.messages.push({ role: 'user', content: text, id: Date.now() });
-                this.scrollToBottom(); this.isTyping = true;
+                if (!this.userInput.trim() && !this.attachedFileUrl) return;
+                
+                const text = this.userInput;
+                const fileUrl = this.attachedFileUrl;
+                
+                // Сброс полей
+                this.userInput = ''; 
+                this.attachedFileUrl = null; 
+                this.$refs.chatInput.style.height = 'auto';
+
+                // Визуальное добавление сообщения пользователя
+                this.messages.push({ 
+                    role: 'user', 
+                    content: text, 
+                    attachment_url: fileUrl, 
+                    id: Date.now() 
+                });
+                
+                this.scrollToBottom(); 
+                this.isTyping = true;
+
                 try {
-                    const payload = { message: text, model: this.currentModel, temperature: parseFloat(this.temperature), web_search: this.webSearch };
+                    const payload = { 
+                        message: text, 
+                        model: this.currentModel, 
+                        temperature: parseFloat(this.temperature), 
+                        web_search: this.webSearch, 
+                        attachment_url: fileUrl // Передаем ссылку отдельно
+                    };
+                    
                     let url = !this.activeChatId ? '/api/chats/new' : `/api/chats/${this.activeChatId}/message`;
-                    const res = await fetch(url, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+                    const res = await fetch(url, { 
+                        method: 'POST', 
+                        headers: {'Content-Type': 'application/json'}, 
+                        body: JSON.stringify(payload) 
+                    });
+                    
                     if (!res.ok) throw new Error("Error");
                     const data = await res.json();
-                    if (!this.activeChatId && data.chat_id) { this.activeChatId = data.chat_id; await this.loadHistory(); }
+                    
+                    if (!this.activeChatId && data.chat_id) { 
+                        this.activeChatId = data.chat_id; 
+                        await this.loadHistory(); 
+                    }
+                    
                     const lastMsg = data.messages[data.messages.length - 1];
-                    this.messages.push({ role: lastMsg.role, content: lastMsg.content, image_url: lastMsg.image_url, id: Date.now()+1 });
-                } catch (e) { this.messages.push({ role: 'assistant', content: '⚠️ Ошибка.', id: Date.now() }); } finally { this.isTyping = false; this.scrollToBottom(); }
+                    this.messages.push({ 
+                        role: lastMsg.role, 
+                        content: lastMsg.content, 
+                        // Поддержка разных форматов ответа
+                        attachment_url: lastMsg.image_url || lastMsg.attachment_url, 
+                        id: Date.now()+1 
+                    });
+                } catch (e) { 
+                    this.messages.push({ role: 'assistant', content: '⚠️ Ошибка при генерации.', id: Date.now() }); 
+                } finally { 
+                    this.isTyping = false; 
+                    this.scrollToBottom(); 
+                }
             },
+
             async uploadFile(event) {
                 const file = event.target.files[0]; if (!file) return;
                 const formData = new FormData(); formData.append('file', file);
-                try { const res = await fetch('/api/upload', { method: 'POST', body: formData }); const data = await res.json(); if(data.url) { this.userInput += ` [Файл: ${data.url}] `; alert("Файл загружен!"); } } catch(e) { alert("Ошибка"); }
+                
+                // Показываем, что идет загрузка (можно добавить лоадер)
+                try { 
+                    const res = await fetch('/api/upload', { method: 'POST', body: formData }); 
+                    const data = await res.json(); 
+                    if(data.url) { 
+                        this.attachedFileUrl = data.url; // Сохраняем URL
+                        this.$refs.fileInput.value = ''; // Очищаем input
+                    } 
+                } catch(e) { alert("Ошибка загрузки файла"); }
             },
-            parseMarkdown(text) { return marked.parse(text); },
-            scrollToBottom() { this.$nextTick(() => { const el = document.getElementById('chat-container'); el.scrollTop = el.scrollHeight; }); }
+
+            parseMarkdown(text) { return marked.parse(text || ""); },
+            
+            scrollToBottom() { 
+                this.$nextTick(() => { 
+                    const el = document.getElementById('chat-container'); 
+                    el.scrollTop = el.scrollHeight; 
+                }); 
+            }
         }
     }
 </script>
