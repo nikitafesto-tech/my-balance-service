@@ -11,25 +11,50 @@ OPENROUTER_KEY = os.getenv("OPENROUTER_API_KEY")
 FAL_KEY = os.getenv("FAL_KEY")
 PROXY_URL = os.getenv("AI_PROXY_URL")
 
+# Логируем состояние при запуске (чтобы видеть в docker logs)
+print("--- AI SERVICE STARTUP ---")
+print(f"DEBUG: OpenRouter Key present: {bool(OPENROUTER_KEY)}")
+if OPENROUTER_KEY:
+    print(f"DEBUG: Key length: {len(OPENROUTER_KEY)}")
+print(f"DEBUG: Proxy URL present: {bool(PROXY_URL)}")
+if PROXY_URL:
+    # Маскируем пароль в логах
+    safe_proxy = PROXY_URL.split('@')[-1] if '@' in PROXY_URL else 'HIDDEN'
+    print(f"DEBUG: Proxy Address: {safe_proxy}")
+print("--------------------------")
+
 # Настройка прокси для Fal.ai (системные переменные)
 if PROXY_URL:
     os.environ["HTTP_PROXY"] = PROXY_URL
     os.environ["HTTPS_PROXY"] = PROXY_URL
-    print(f"🌍 PROXY ACTIVATED: {PROXY_URL}")
 
 text_client = None
+init_error = None # Сохраним ошибку, если она случится
+
 if OPENROUTER_KEY:
     try:
-        # Настраиваем клиент OpenAI с прокси, если он есть
-        http_client = httpx.AsyncClient(proxies=PROXY_URL) if PROXY_URL else None
+        http_client = None
+        if PROXY_URL:
+            # Используем словарь для надежности
+            http_client = httpx.AsyncClient(
+                proxies={
+                    "http://": PROXY_URL,
+                    "https://": PROXY_URL
+                },
+                verify=False # Отключаем проверку SSL для прокси во избежание ошибок сертификатов
+            )
         
         text_client = AsyncOpenAI(
             api_key=OPENROUTER_KEY,
             base_url="https://openrouter.ai/api/v1",
-            http_client=http_client, # <--- ВАЖНО: Передаем прокси сюда
+            http_client=http_client,
         )
+        print("✅ OpenRouter Client Initialized Successfully")
     except Exception as e:
-        print(f"⚠️ OpenAI Init Error: {e}")
+        init_error = str(e)
+        print(f"❌ CRITICAL ERROR initializing OpenAI: {e}")
+else:
+    init_error = "OpenRouter API Key not found in env"
 
 # === 2. ПОЛНЫЙ КАТАЛОГ МОДЕЛЕЙ (ДЕКАБРЬ 2025) ===
 MODEL_CONFIG = {
@@ -147,13 +172,15 @@ async def generate_ai_response(
     if user_balance < 0.1:
         raise HTTPException(status_code=402, detail="Недостаточно средств. Пополните баланс.")
 
-    # Получаем последний промпт
     last_msg_obj = next((m for m in reversed(messages) if m["role"] == "user"), None)
     prompt = last_msg_obj["content"] if last_msg_obj else "Hello"
 
     # === ТЕКСТОВЫЕ МОДЕЛИ (OpenRouter) ===
     if model_type == "text":
-        if not text_client: raise Exception("OpenRouter Key is missing")
+        if not text_client: 
+            # Если клиента нет, значит была ошибка инициализации
+            error_msg = init_error if init_error else "OpenRouter Key is missing or Proxy failed"
+            raise Exception(f"System Error: {error_msg}")
         
         final_messages = []
         if web_search:
@@ -166,7 +193,7 @@ async def generate_ai_response(
             role = msg.get("role", "user")
             content = msg.get("content", "")
             
-            # VISION LOGIC: Если есть картинка в этом сообщении
+            # VISION LOGIC
             if role == "user" and msg == last_msg_obj and attachment_url:
                 final_messages.append({
                     "role": "user",
@@ -209,7 +236,9 @@ async def generate_ai_response(
             error_msg = str(e)
             print(f"❌ Error: {error_msg}")
             if "403" in error_msg:
-                return "⚠️ Ошибка доступа (403). Сервис недоступен в вашем регионе. Обратитесь к администратору для настройки прокси.", 0
+                return "⚠️ Ошибка доступа (403). Прокси не настроен или заблокирован. Проверьте AI_PROXY_URL.", 0
+            if "does not exist" in error_msg or "not found" in error_msg:
+                return f"⚠️ Модель {model_id} временно недоступна в API.", 0
             raise e
 
     # === МЕДИА МОДЕЛИ (Fal.ai) ===
@@ -219,7 +248,7 @@ async def generate_ai_response(
         cost = model_info.get("price_fixed", 10)
         clean_prompt = prompt
         
-        print(f"🎨 MEDIA: {model_id} | Prompt: {clean_prompt[:30]}")
+        print(f"🎨 MEDIA: {model_id} | Proxy: {bool(PROXY_URL)}")
         
         args = {"prompt": clean_prompt}
         if model_type == "image": args["image_size"] = "landscape_16_9"
