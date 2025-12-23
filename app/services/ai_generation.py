@@ -1,105 +1,74 @@
 import os
 import re
 import fal_client
+import httpx
 from openai import AsyncOpenAI
 from fastapi import HTTPException
 from app.services.s3 import upload_url_to_s3
 
-# === 1. НАСТРОЙКИ ===
+# === НАСТРОЙКИ И ПРОКСИ ===
 OPENROUTER_KEY = os.getenv("OPENROUTER_API_KEY")
 FAL_KEY = os.getenv("FAL_KEY")
+PROXY_URL = os.getenv("AI_PROXY_URL")
 
+# Настраиваем прокси для Fal.ai (через переменные окружения)
+if PROXY_URL:
+    os.environ["HTTP_PROXY"] = PROXY_URL
+    os.environ["HTTPS_PROXY"] = PROXY_URL
+    print(f"🌍 AI Proxy activated: {PROXY_URL}")
+
+# Настраиваем клиент OpenAI с прокси
 text_client = None
 if OPENROUTER_KEY:
     try:
+        # Создаем HTTP клиент с прокси
+        http_client = httpx.AsyncClient(proxies=PROXY_URL) if PROXY_URL else None
+        
         text_client = AsyncOpenAI(
             api_key=OPENROUTER_KEY,
             base_url="https://openrouter.ai/api/v1",
+            http_client=http_client, # Подключаем прокси
         )
     except Exception as e:
         print(f"⚠️ OpenAI Init Error: {e}")
 
-# === 2. ПОЛНЫЙ КАТАЛОГ МОДЕЛЕЙ (ДЕКАБРЬ 2025) ===
+# === КАТАЛОГ МОДЕЛЕЙ ===
 MODEL_CONFIG = {
-    # --- OPENAI (CHATGPT) ---
+    # --- OPENAI ---
     "gpt-5.2":            {"type": "text", "id": "openai/gpt-5.2", "price_in": 2.5, "price_out": 10},
     "gpt-5.2-chat":       {"type": "text", "id": "openai/gpt-5.2-chat", "price_in": 2.5, "price_out": 10},
     "gpt-5.2-pro":        {"type": "text", "id": "openai/gpt-5.2-pro", "price_in": 2.5, "price_out": 10},
     "gpt-5.1":            {"type": "text", "id": "openai/gpt-5.1", "price_in": 0.15, "price_out": 0.6},
     "gpt-5.1-codex":      {"type": "text", "id": "openai/gpt-5.1-codex", "price_in": 0.15, "price_out": 0.6},
-    "gpt-5.1-codex-max":  {"type": "text", "id": "openai/gpt-5.1-codex-max", "price_in": 3, "price_out": 12},
-    "gpt-5.1-codex-mini": {"type": "text", "id": "openai/gpt-5.1-codex-mini", "price_in": 3, "price_out": 12},
     "gpt-5.1-chat":       {"type": "text", "id": "openai/gpt-5.1-chat", "price_in": 2.5, "price_out": 10},
-    "gpt-5-mini":         {"type": "text", "id": "openai/gpt-5-mini", "price_in": 2.5, "price_out": 10},
-    "gpt-5-chat":         {"type": "text", "id": "openai/gpt-5-chat", "price_in": 15, "price_out": 60},
-    "gpt-5-nano":         {"type": "text", "id": "openai/gpt-5-nano", "price_in": 2.5, "price_out": 10},
-    "gpt-5-codex":        {"type": "text", "id": "openai/gpt-5-codex", "price_in": 2.5, "price_out": 10},
     "gpt-5":              {"type": "text", "id": "openai/gpt-5", "price_in": 2.5, "price_out": 10},
     "o1-preview":         {"type": "text", "id": "openai/o1-preview", "price_in": 15, "price_out": 60},
     "o1-mini":            {"type": "text", "id": "openai/o1-mini", "price_in": 3, "price_out": 12},
-    "gpt-oss-120b":       {"type": "text", "id": "openai/gpt-oss-120b", "price_in": 3, "price_out": 12},
-    "gpt-oss-20b":        {"type": "text", "id": "openai/gpt-oss-20b", "price_in": 3, "price_out": 12},
-    "gpt-4.1-mini":       {"type": "text", "id": "openai/gpt-4.1-mini", "price_in": 3, "price_out": 12},
-    "gpt-4.1":            {"type": "text", "id": "openai/gpt-4.1", "price_in": 3, "price_out": 12},
-    "gpt-4.1-nano":       {"type": "text", "id": "openai/gpt-4.1-nano", "price_in": 3, "price_out": 12},
     "gpt-4o":             {"type": "text", "id": "openai/gpt-4o", "price_in": 2.5, "price_out": 10},
     "gpt-4o-mini":        {"type": "text", "id": "openai/gpt-4o-mini", "price_in": 0.15, "price_out": 0.6},
 
-    # --- ANTHROPIC (CLAUDE) ---
+    # --- ANTHROPIC ---
     "claude-4.5-sonnet":  {"type": "text", "id": "anthropic/claude-sonnet-4.5", "price_in": 3, "price_out": 15},
     "claude-opus-4.5":    {"type": "text", "id": "anthropic/claude-opus-4.5", "price_in": 3, "price_out": 15},
-    "claude-haiku-4.5":   {"type": "text", "id": "anthropic/claude-haiku-4.5", "price_in": 3, "price_out": 15},
-    "claude-4-sonnet":    {"type": "text", "id": "anthropic/claude-sonnet-4", "price_in": 3, "price_out": 15},
-    "claude-opus-4":      {"type": "text", "id": "anthropic/claude-opus-4", "price_in": 3, "price_out": 15},
     "claude-3.7-sonnet":  {"type": "text", "id": "anthropic/claude-3.7-sonnet", "price_in": 3, "price_out": 15},
-    "claude-3.7-thinking":{"type": "text", "id": "anthropic/claude-3.7-sonnet:thinking", "price_in": 3, "price_out": 15},
     "claude-3.5-sonnet":  {"type": "text", "id": "anthropic/claude-3.5-sonnet", "price_in": 3, "price_out": 15},
     "claude-3-opus":      {"type": "text", "id": "anthropic/claude-3-opus", "price_in": 15, "price_out": 75},
-    "claude-3-haiku":     {"type": "text", "id": "anthropic/claude-3-haiku", "price_in": 0.25, "price_out": 1.25},
 
-    # --- GOOGLE (GEMINI) ---
+    # --- GOOGLE ---
     "gemini-3-pro":       {"type": "text", "id": "google/gemini-3-pro-preview", "price_in": 3.5, "price_out": 10.5},
     "gemini-3-flash":     {"type": "text", "id": "google/gemini-3-flash-preview", "price_in": 3.5, "price_out": 10.5},
     "gemini-2.5-flash":   {"type": "text", "id": "google/gemini-2.5-flash", "price_in": 3.5, "price_out": 10.5},
-    "gemini-2.5-lite":    {"type": "text", "id": "google/gemini-2.5-flash-lite", "price_in": 3.5, "price_out": 10.5},
     "gemini-free":        {"type": "text", "id": "google/gemini-2.0-flash-exp:free", "price_in": 0, "price_out": 0},
 
-    # --- xAI (GROK) ---
-    "grok-4.1-fast":      {"type": "text", "id": "x-ai/grok-4.1-fast", "price_in": 2, "price_out": 10},
-    "grok-4-fast":        {"type": "text", "id": "x-ai/grok-4-fast", "price_in": 2, "price_out": 10},
-    "grok-4":             {"type": "text", "id": "x-ai/grok-4", "price_in": 2, "price_out": 10},
-    "grok-3":             {"type": "text", "id": "x-ai/grok-3", "price_in": 2, "price_out": 10},
-    "grok-code-fast":     {"type": "text", "id": "x-ai/grok-code-fast-1", "price_in": 2, "price_out": 10},
-
-    # --- DEEPSEEK ---
-    "deepseek-v3.2":      {"type": "text", "id": "deepseek/deepseek-v3.2", "price_in": 0.14, "price_out": 0.28},
-    "deepseek-v3":        {"type": "text", "id": "deepseek/deepseek-chat-v3-0324", "price_in": 0.14, "price_out": 0.28},
-    "deepseek-r1":        {"type": "text", "id": "tngtech/deepseek-r1t2-chimera:free", "price_in": 0.14, "price_out": 0.28},
-    "deepseek-3.1":       {"type": "text", "id": "deepseek/deepseek-chat-v3.1", "price_in": 0.14, "price_out": 0.28},
-    "deepseek-nex":       {"type": "text", "id": "nex-agi/deepseek-v3.1-nex-n1:free", "price_in": 0.14, "price_out": 0.28},
-
-    # --- MISTRAL ---
-    "mistral-small":      {"type": "text", "id": "mistralai/mistral-small-3.2-24b-instruct", "price_in": 0.14, "price_out": 0.28},
-    "mistral-nemo":       {"type": "text", "id": "mistralai/mistral-nemo", "price_in": 0.14, "price_out": 0.28},
-    "mistral-24b":        {"type": "text", "id": "cognitivecomputations/dolphin-mistral-24b-venice-edition:free", "price_in": 0.14, "price_out": 0.28},
-
-    # --- PERPLEXITY ---
+    # --- OTHERS ---
+    "grok-2":             {"type": "text", "id": "x-ai/grok-2-vision-1212", "price_in": 2, "price_out": 10},
+    "deepseek-v3":        {"type": "text", "id": "deepseek/deepseek-chat", "price_in": 0.14, "price_out": 0.28},
+    "deepseek-r1":        {"type": "text", "id": "deepseek/deepseek-r1", "price_in": 0.5, "price_out": 2},
+    "mistral-large":      {"type": "text", "id": "mistralai/mistral-large", "price_in": 2, "price_out": 6},
+    "llama-3.3-70b":      {"type": "text", "id": "meta-llama/llama-3.3-70b-instruct", "price_in": 0.7, "price_out": 0.9},
     "sonar-deep":         {"type": "text", "id": "perplexity/sonar-deep-research", "price_in": 1, "price_out": 5},
-    "sonar":              {"type": "text", "id": "perplexity/sonar", "price_in": 1, "price_out": 5},
-    "sonar-pro":          {"type": "text", "id": "perplexity/sonar-pro-search", "price_in": 1, "price_out": 5},
-    "sonar-reasoning":    {"type": "text", "id": "perplexity/sonar-reasoning-pro", "price_in": 1, "price_out": 5},
 
-    # --- MOONSHOT ---
-    "kimi-k2":            {"type": "text", "id": "moonshotai/kimi-k2-0905", "price_in": 1, "price_out": 5},
-    "kimi-k2-think":      {"type": "text", "id": "moonshotai/kimi-k2-thinking", "price_in": 1, "price_out": 5},
-    "kimi-free":          {"type": "text", "id": "moonshotai/kimi-k2:free", "price_in": 1, "price_out": 5},
-
-    # --- LLaMA ---
-    "llama-4-mav":        {"type": "text", "id": "meta-llama/llama-4-maverick", "price_in": 1, "price_out": 5},
-    "llama-4-scout":      {"type": "text", "id": "meta-llama/llama-4-scout", "price_in": 1, "price_out": 5},
-    "llama-3.3-70b":      {"type": "text", "id": "meta-llama/llama-3.3-70b-instruct:free", "price_in": 1, "price_out": 5},
-    
-    # --- ВИДЕО / ФОТО (FAL.AI) ---
+    # --- MEDIA ---
     "recraft-v3":         {"type": "image", "id": "fal-ai/recraft-v3", "price_fixed": 10},
     "flux-1.1-ultra":     {"type": "image", "id": "fal-ai/flux-pro/v1.1-ultra", "price_fixed": 12},
     "luma-ray-2":         {"type": "video", "id": "fal-ai/luma-dream-machine/ray-2", "price_fixed": 50},
@@ -107,7 +76,6 @@ MODEL_CONFIG = {
 }
 
 def extract_image_url(text: str):
-    """(Устарело, но оставим для совместимости) Ищет ссылку на картинку в тексте"""
     if not text: return None
     match = re.search(r'(?:\[Файл:|!\[.*?\]\()((https?://\S+?)(?:\.png|\.jpg|\.jpeg|\.webp))(?:\)|\]|\s)', text, re.IGNORECASE)
     if match: return match.group(1)
@@ -125,8 +93,13 @@ async def generate_ai_response(
     # 1. Поиск модели
     model_info = MODEL_CONFIG.get(model_alias)
     if not model_info:
-        # Fallback
-        model_info = MODEL_CONFIG["gpt-4o"]
+        # Пытаемся найти по ID, если пришел прямой ID
+        for k, v in MODEL_CONFIG.items():
+            if v["id"] == model_alias:
+                model_info = v
+                break
+        if not model_info:
+            model_info = MODEL_CONFIG["gpt-4o"]
 
     model_id = model_info["id"]
     model_type = model_info["type"]
@@ -135,7 +108,6 @@ async def generate_ai_response(
     if user_balance < 0.1:
         raise HTTPException(status_code=402, detail="Недостаточно средств. Пополните баланс.")
 
-    # Для Vision/Медиа берем последний промпт
     last_msg_obj = next((m for m in reversed(messages) if m["role"] == "user"), None)
     prompt = last_msg_obj["content"] if last_msg_obj else "Hello"
 
@@ -154,8 +126,7 @@ async def generate_ai_response(
             role = msg.get("role", "user")
             content = msg.get("content", "")
             
-            # VISION LOGIC: Если это последнее сообщение и есть прикрепленный файл
-            # Мы формируем структуру content как список
+            # VISION: Если есть картинка в этом сообщении
             if role == "user" and msg == last_msg_obj and attachment_url:
                 final_messages.append({
                     "role": "user",
@@ -165,12 +136,12 @@ async def generate_ai_response(
                     ]
                 })
             else:
-                # Обычное текстовое сообщение
                 final_messages.append({"role": role, "content": content})
 
-        print(f"📝 REQUEST: {model_id} | Web: {web_search} | Attach: {bool(attachment_url)}")
+        print(f"📝 REQUEST: {model_id} | Proxy: {bool(PROXY_URL)}")
 
         try:
+            # ВАЖНО: extra_headers вместо headers, убраны plugins
             response = await text_client.chat.completions.create(
                 model=model_id,
                 messages=final_messages,
@@ -183,10 +154,9 @@ async def generate_ai_response(
             
             reply_text = response.choices[0].message.content
             
-            # Расчет цены (Приблизительно)
+            # Расчет цены
             input_chars = sum(len(str(m)) for m in final_messages)
             output_chars = len(reply_text)
-            
             input_tokens = input_chars / 4
             output_tokens = output_chars / 4
             
@@ -198,8 +168,9 @@ async def generate_ai_response(
 
         except Exception as e:
             error_msg = str(e)
-            if "does not exist" in error_msg or "not found" in error_msg:
-                return f"⚠️ Модель {model_id} временно недоступна. Попробуйте другую.", 0
+            print(f"❌ Error: {error_msg}")
+            if "403" in error_msg:
+                return "⚠️ Ошибка доступа (403). Сервис недоступен в вашем регионе. Обратитесь к администратору для настройки прокси.", 0
             raise e
 
     # === МЕДИА МОДЕЛИ (Fal.ai) ===
@@ -207,25 +178,29 @@ async def generate_ai_response(
         if not FAL_KEY: raise Exception("FAL_KEY missing")
         
         cost = model_info.get("price_fixed", 10)
-        # Очищаем промпт для Fal.ai
         clean_prompt = prompt
         
-        print(f"🎨 MEDIA: {model_id} | Prompt: {clean_prompt[:30]}")
+        print(f"🎨 MEDIA: {model_id} | Proxy: {bool(PROXY_URL)}")
         
         args = {"prompt": clean_prompt}
         if model_type == "image": args["image_size"] = "landscape_16_9"
         
-        handler = await fal_client.submit_async(model_id, arguments=args)
-        result = await handler.get()
-        
-        media_url = None
-        if 'video' in result and 'url' in result['video']: media_url = result['video']['url']
-        elif 'images' in result: media_url = result['images'][0]['url']
-        elif 'file' in result: media_url = result['file']['url']
-        else: media_url = str(result)
+        try:
+            handler = await fal_client.submit_async(model_id, arguments=args)
+            result = await handler.get()
+            
+            media_url = None
+            if 'video' in result and 'url' in result['video']: media_url = result['video']['url']
+            elif 'images' in result: media_url = result['images'][0]['url']
+            elif 'file' in result: media_url = result['file']['url']
+            else: media_url = str(result)
 
-        saved_url = await upload_url_to_s3(media_url)
-        prefix = "!" if model_type in ["image", "video"] else ""
-        return f"{prefix}[Generated]({saved_url or media_url})", cost
+            saved_url = await upload_url_to_s3(media_url)
+            prefix = "!" if model_type in ["image", "video"] else ""
+            return f"{prefix}[Generated]({saved_url or media_url})", cost
+        except Exception as e:
+             if "403" in str(e):
+                 return "⚠️ Ошибка региона (403). Fal.ai заблокировал запрос.", 0
+             raise e
 
     return "Тип модели не поддерживается", 0
