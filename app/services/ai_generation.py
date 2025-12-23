@@ -11,37 +11,27 @@ OPENROUTER_KEY = os.getenv("OPENROUTER_API_KEY")
 FAL_KEY = os.getenv("FAL_KEY")
 PROXY_URL = os.getenv("AI_PROXY_URL")
 
-# Настройка прокси для Fal.ai и системных запросов
+# Настройка прокси для Fal.ai (системные переменные)
 if PROXY_URL:
     os.environ["HTTP_PROXY"] = PROXY_URL
     os.environ["HTTPS_PROXY"] = PROXY_URL
     print(f"🌍 PROXY ACTIVATED: {PROXY_URL}")
-else:
-    print("⚠️ PROXY NOT FOUND (Direct Connection)")
 
 text_client = None
 if OPENROUTER_KEY:
     try:
-        # Явная настройка прокси для OpenAI/OpenRouter
-        http_client = None
-        if PROXY_URL:
-            http_client = httpx.AsyncClient(
-                proxies={
-                    "http://": PROXY_URL,
-                    "https://": PROXY_URL,
-                },
-                verify=False # Иногда прокси могут иметь самоподписанные сертификаты
-            )
+        # Настраиваем клиент OpenAI с прокси, если он есть
+        http_client = httpx.AsyncClient(proxies=PROXY_URL) if PROXY_URL else None
         
         text_client = AsyncOpenAI(
             api_key=OPENROUTER_KEY,
             base_url="https://openrouter.ai/api/v1",
-            http_client=http_client,
+            http_client=http_client, # <--- ВАЖНО: Передаем прокси сюда
         )
     except Exception as e:
         print(f"⚠️ OpenAI Init Error: {e}")
 
-# === 2. КАТАЛОГ МОДЕЛЕЙ ===
+# === 2. ПОЛНЫЙ КАТАЛОГ МОДЕЛЕЙ (ДЕКАБРЬ 2025) ===
 MODEL_CONFIG = {
     # --- OPENAI (CHATGPT) ---
     "gpt-5.2":            {"type": "text", "id": "openai/gpt-5.2", "price_in": 2.5, "price_out": 10},
@@ -129,6 +119,7 @@ MODEL_CONFIG = {
 }
 
 def extract_image_url(text: str):
+    """(Устарело, но оставим для совместимости)"""
     if not text: return None
     match = re.search(r'(?:\[Файл:|!\[.*?\]\()((https?://\S+?)(?:\.png|\.jpg|\.jpeg|\.webp))(?:\)|\]|\s)', text, re.IGNORECASE)
     if match: return match.group(1)
@@ -156,10 +147,11 @@ async def generate_ai_response(
     if user_balance < 0.1:
         raise HTTPException(status_code=402, detail="Недостаточно средств. Пополните баланс.")
 
+    # Получаем последний промпт
     last_msg_obj = next((m for m in reversed(messages) if m["role"] == "user"), None)
     prompt = last_msg_obj["content"] if last_msg_obj else "Hello"
 
-    # === ТЕКСТОВЫЕ МОДЕЛИ ===
+    # === ТЕКСТОВЫЕ МОДЕЛИ (OpenRouter) ===
     if model_type == "text":
         if not text_client: raise Exception("OpenRouter Key is missing")
         
@@ -174,6 +166,7 @@ async def generate_ai_response(
             role = msg.get("role", "user")
             content = msg.get("content", "")
             
+            # VISION LOGIC: Если есть картинка в этом сообщении
             if role == "user" and msg == last_msg_obj and attachment_url:
                 final_messages.append({
                     "role": "user",
@@ -219,7 +212,7 @@ async def generate_ai_response(
                 return "⚠️ Ошибка доступа (403). Сервис недоступен в вашем регионе. Обратитесь к администратору для настройки прокси.", 0
             raise e
 
-    # === МЕДИА МОДЕЛИ ===
+    # === МЕДИА МОДЕЛИ (Fal.ai) ===
     elif model_type in ["video", "image"]:
         if not FAL_KEY: raise Exception("FAL_KEY missing")
         
