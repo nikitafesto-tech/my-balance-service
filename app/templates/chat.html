@@ -410,7 +410,10 @@
                                 const m = group.models.find(x => x.id === data.model);
                                 if (m) foundName = m.name;
                             }
-                            this.setModel(data.model, foundName);
+                            // ВАЖНОЕ ИСПРАВЛЕНИЕ: МЕНЯЕМ МОДЕЛЬ БЕЗ ВЫЗОВА SETMODEL()
+                            // Чтобы не срабатывала очистка чата
+                            this.currentModel = data.model;
+                            this.currentModelName = foundName;
                         }
                         
                         this.scrollToBottom(); 
