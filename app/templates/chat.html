@@ -63,7 +63,13 @@
                     <i class="ph ph-magic-wand text-3xl text-white"></i>
                 </div>
                 <h2 class="text-2xl font-bold mb-2">Чем могу помочь?</h2>
-                <div class="text-gray-500 max-w-md mb-8">Модель: <span class="text-green font-bold" x-text="currentModelName"></span></div>
+                <div class="text-gray-500 max-w-md mb-8 flex items-center justify-center gap-2">
+                    <span>Модель:</span>
+                    <span class="text-green font-bold flex items-center gap-2">
+                        <span x-html="getCurrentGroupIcon()" class="w-4 h-4 fill-current"></span>
+                        <span x-text="currentModelName"></span>
+                    </span>
+                </div>
             </div>
 
             <template x-for="msg in messages" :key="msg.id">
@@ -135,96 +141,38 @@
                             
                             <div class="relative" x-data="{ open: false }">
                                 <button @click="open = !open" class="flex items-center gap-2 bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-lg transition border border-white/5 text-xs sm:text-sm">
-                                    <i class="ph ph-lightning text-green"></i>
+                                    <span x-html="getCurrentGroupIcon()" class="w-4 h-4 fill-white"></span>
                                     <span class="font-semibold" x-text="currentModelName">GPT-4o</span>
-                                    <i class="ph ph-caret-down text-gray-500"></i>
+                                    <i class="ph ph-caret-down text-gray-500 transition-transform" :class="open ? 'rotate-180' : ''"></i>
                                 </button>
-                                <div x-show="open" @click.outside="open = false" x-transition class="absolute bottom-full left-0 mb-2 w-80 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden max-h-[80vh] flex flex-col">
-                                    <div class="p-2 space-y-1 overflow-y-auto custom-scrollbar flex-1">
-                                        <div class="cat-title">OpenAI (GPT-5/4)</div>
-                                        <button @click="setModel('gpt-5.2', 'GPT 5.2'); open=false" class="model-btn"><i class="ph ph-lightning text-yellow-400"></i> GPT 5.2</button>
-                                        <button @click="setModel('gpt-5.2-pro', 'GPT 5.2 Pro'); open=false" class="model-btn"><i class="ph ph-lightning text-yellow-400"></i> GPT 5.2 Pro</button>
-                                        <button @click="setModel('gpt-5.2-chat', 'GPT 5.2 Chat'); open=false" class="model-btn"><i class="ph ph-chat text-yellow-400"></i> GPT 5.2 Chat</button>
-                                        <button @click="setModel('gpt-5.1', 'GPT 5.1'); open=false" class="model-btn"><i class="ph ph-lightning text-orange-400"></i> GPT 5.1</button>
-                                        <button @click="setModel('gpt-5.1-codex', 'GPT 5.1 Codex'); open=false" class="model-btn"><i class="ph ph-code text-orange-400"></i> GPT 5.1 Codex</button>
-                                        <button @click="setModel('gpt-5.1-codex-max', 'Codex Max'); open=false" class="model-btn"><i class="ph ph-code text-orange-400"></i> Codex Max</button>
-                                        <button @click="setModel('gpt-5.1-codex-mini', 'Codex Mini'); open=false" class="model-btn"><i class="ph ph-code text-orange-400"></i> Codex Mini</button>
-                                        <button @click="setModel('gpt-5.1-chat', 'GPT 5.1 Chat'); open=false" class="model-btn"><i class="ph ph-chat text-orange-400"></i> GPT 5.1 Chat</button>
-                                        <button @click="setModel('gpt-5', 'GPT 5'); open=false" class="model-btn"><i class="ph ph-lightning text-red-400"></i> GPT 5</button>
-                                        <button @click="setModel('gpt-5-mini', 'GPT 5 Mini'); open=false" class="model-btn"><i class="ph ph-lightning text-red-300"></i> GPT 5 Mini</button>
-                                        <button @click="setModel('gpt-5-nano', 'GPT 5 Nano'); open=false" class="model-btn"><i class="ph ph-lightning text-red-200"></i> GPT 5 Nano</button>
-                                        <button @click="setModel('gpt-5-codex', 'GPT 5 Codex'); open=false" class="model-btn"><i class="ph ph-code text-red-400"></i> GPT 5 Codex</button>
-                                        <button @click="setModel('gpt-5-chat', 'GPT 5 Chat'); open=false" class="model-btn"><i class="ph ph-chat text-red-400"></i> GPT 5 Chat</button>
-                                        <button @click="setModel('gpt-4o', 'GPT-4o'); open=false" class="model-btn"><i class="ph ph-brain text-green-500"></i> GPT-4o</button>
-                                        <button @click="setModel('gpt-4o-mini', 'GPT-4o Mini'); open=false" class="model-btn"><i class="ph ph-brain text-green-300"></i> GPT-4o Mini</button>
-                                        <button @click="setModel('gpt-4.1', 'GPT 4.1'); open=false" class="model-btn"><i class="ph ph-brain text-green-400"></i> GPT 4.1</button>
-                                        <button @click="setModel('gpt-4.1-mini', 'GPT 4.1 Mini'); open=false" class="model-btn"><i class="ph ph-brain text-green-300"></i> GPT 4.1 Mini</button>
-                                        <button @click="setModel('gpt-4.1-nano', 'GPT 4.1 Nano'); open=false" class="model-btn"><i class="ph ph-brain text-green-200"></i> GPT 4.1 Nano</button>
-                                        <button @click="setModel('gpt-oss-120b', 'GPT OSS 120B'); open=false" class="model-btn"><i class="ph ph-cube text-gray-400"></i> GPT OSS 120B</button>
-                                        <button @click="setModel('gpt-oss-20b', 'GPT OSS 20B'); open=false" class="model-btn"><i class="ph ph-cube text-gray-400"></i> GPT OSS 20B</button>
-                                        <button @click="setModel('o1-preview', 'o1 Preview'); open=false" class="model-btn"><i class="ph ph-lightbulb text-white"></i> o1 Preview</button>
-                                        <button @click="setModel('o1-mini', 'o1 Mini'); open=false" class="model-btn"><i class="ph ph-lightbulb text-gray-400"></i> o1 Mini</button>
+
+                                <div x-show="open" @click.outside="open = false" x-transition class="absolute bottom-full left-0 mb-2 w-72 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden max-h-[70vh] flex flex-col">
+                                    <div class="p-2 overflow-y-auto custom-scrollbar flex-1 space-y-1">
                                         
-                                        <div class="cat-title">Anthropic (Claude)</div>
-                                        <button @click="setModel('claude-4.5-sonnet', 'Claude 4.5 Sonnet'); open=false" class="model-btn"><i class="ph ph-crown text-purple-400"></i> Claude 4.5 Sonnet</button>
-                                        <button @click="setModel('claude-opus-4.5', 'Claude 4.5 Opus'); open=false" class="model-btn"><i class="ph ph-crown text-purple-500"></i> Claude 4.5 Opus</button>
-                                        <button @click="setModel('claude-haiku-4.5', 'Claude 4.5 Haiku'); open=false" class="model-btn"><i class="ph ph-wind text-purple-300"></i> Claude 4.5 Haiku</button>
-                                        <button @click="setModel('claude-4-sonnet', 'Claude 4 Sonnet'); open=false" class="model-btn"><i class="ph ph-robot text-orange-400"></i> Claude 4 Sonnet</button>
-                                        <button @click="setModel('claude-opus-4', 'Claude 4 Opus'); open=false" class="model-btn"><i class="ph ph-crown text-orange-500"></i> Claude 4 Opus</button>
-                                        <button @click="setModel('claude-3.7-sonnet', 'Claude 3.7 Sonnet'); open=false" class="model-btn"><i class="ph ph-robot text-orange-400"></i> Claude 3.7 Sonnet</button>
-                                        <button @click="setModel('claude-3.7-thinking', 'Claude 3.7 Thinking'); open=false" class="model-btn"><i class="ph ph-brain text-orange-400"></i> Claude 3.7 Thinking</button>
-                                        <button @click="setModel('claude-3.5-sonnet', 'Claude 3.5 Sonnet'); open=false" class="model-btn"><i class="ph ph-robot text-orange-300"></i> Claude 3.5 Sonnet</button>
-                                        <button @click="setModel('claude-3-opus', 'Claude 3 Opus'); open=false" class="model-btn"><i class="ph ph-crown text-orange-500"></i> Claude 3 Opus</button>
-                                        <button @click="setModel('claude-3-haiku', 'Claude 3 Haiku'); open=false" class="model-btn"><i class="ph ph-wind text-gray-400"></i> Claude 3 Haiku</button>
+                                        <template x-for="group in aiGroups" :key="group.name">
+                                            <div class="mb-1">
+                                                <button @click="group.isOpen = !group.isOpen" 
+                                                        class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold text-gray-300 hover:bg-white/5 hover:text-white transition-colors">
+                                                    <div class="flex items-center gap-3">
+                                                        <div class="w-5 h-5 fill-current opacity-90" x-html="group.icon"></div>
+                                                        <span x-text="group.name"></span>
+                                                    </div>
+                                                    <i class="ph ph-caret-down text-xs text-gray-500 transition-transform" :class="group.isOpen ? 'rotate-180' : ''"></i>
+                                                </button>
 
-                                        <div class="cat-title">Google (Gemini)</div>
-                                        <button @click="setModel('gemini-3-pro', 'Gemini 3 Pro'); open=false" class="model-btn"><i class="ph ph-star text-blue-400"></i> Gemini 3 Pro</button>
-                                        <button @click="setModel('gemini-3-flash', 'Gemini 3 Flash'); open=false" class="model-btn"><i class="ph ph-lightning text-blue-300"></i> Gemini 3 Flash</button>
-                                        <button @click="setModel('gemini-2.5-flash', 'Gemini 2.5 Flash'); open=false" class="model-btn"><i class="ph ph-lightning text-blue-300"></i> Gemini 2.5 Flash</button>
-                                        <button @click="setModel('gemini-2.5-lite', 'Gemini 2.5 Lite'); open=false" class="model-btn"><i class="ph ph-lightning text-blue-200"></i> Gemini 2.5 Lite</button>
-                                        <button @click="setModel('gemini-free', 'Gemini Free'); open=false" class="model-btn"><i class="ph ph-gift text-green-400"></i> Gemini Free</button>
+                                                <div x-show="group.isOpen" x-collapse class="pl-2 space-y-0.5 mt-1">
+                                                    <template x-for="model in group.models" :key="model.id">
+                                                        <button @click="setModel(model.id, model.name); open=false" 
+                                                                class="w-full text-left px-3 py-2 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/10 transition-colors ml-2 border-l border-white/5 flex justify-between items-center"
+                                                                :class="currentModel === model.id ? 'text-green bg-green/5 border-green' : ''">
+                                                            <span x-text="model.name"></span>
+                                                            <i x-show="currentModel === model.id" class="ph ph-check text-green"></i>
+                                                        </button>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </template>
 
-                                        <div class="cat-title">xAI (Grok)</div>
-                                        <button @click="setModel('grok-4.1-fast', 'Grok 4.1 Fast'); open=false" class="model-btn"><i class="ph ph-hash text-white"></i> Grok 4.1 Fast</button>
-                                        <button @click="setModel('grok-4', 'Grok 4'); open=false" class="model-btn"><i class="ph ph-hash text-white"></i> Grok 4</button>
-                                        <button @click="setModel('grok-4-fast', 'Grok 4 Fast'); open=false" class="model-btn"><i class="ph ph-hash text-gray-300"></i> Grok 4 Fast</button>
-                                        <button @click="setModel('grok-3', 'Grok 3'); open=false" class="model-btn"><i class="ph ph-hash text-gray-400"></i> Grok 3</button>
-                                        <button @click="setModel('grok-code-fast', 'Grok Code Fast'); open=false" class="model-btn"><i class="ph ph-code text-white"></i> Grok Code Fast</button>
-
-                                        <div class="cat-title">DeepSeek</div>
-                                        <button @click="setModel('deepseek-v3.2', 'DeepSeek V3.2'); open=false" class="model-btn"><i class="ph ph-code text-cyan-400"></i> DeepSeek V3.2</button>
-                                        <button @click="setModel('deepseek-3.1', 'DeepSeek 3.1'); open=false" class="model-btn"><i class="ph ph-code text-cyan-500"></i> DeepSeek 3.1</button>
-                                        <button @click="setModel('deepseek-v3', 'DeepSeek V3'); open=false" class="model-btn"><i class="ph ph-code text-cyan-600"></i> DeepSeek V3</button>
-                                        <button @click="setModel('deepseek-r1', 'DeepSeek R1'); open=false" class="model-btn"><i class="ph ph-brain text-cyan-400"></i> DeepSeek R1</button>
-                                        <button @click="setModel('deepseek-nex', 'DeepSeek Nex'); open=false" class="model-btn"><i class="ph ph-code text-gray-400"></i> DeepSeek Nex</button>
-
-                                        <div class="cat-title">Perplexity</div>
-                                        <button @click="setModel('sonar-deep', 'Sonar Deep Research'); open=false" class="model-btn"><i class="ph ph-globe text-teal-400"></i> Sonar Deep Research</button>
-                                        <button @click="setModel('sonar', 'Sonar'); open=false" class="model-btn"><i class="ph ph-magnifying-glass text-teal-300"></i> Sonar</button>
-                                        <button @click="setModel('sonar-pro', 'Sonar Pro Search'); open=false" class="model-btn"><i class="ph ph-magnifying-glass text-teal-500"></i> Sonar Pro Search</button>
-                                        <button @click="setModel('sonar-reasoning', 'Sonar Reasoning'); open=false" class="model-btn"><i class="ph ph-brain text-teal-200"></i> Sonar Reasoning</button>
-
-                                        <div class="cat-title">Moonshot</div>
-                                        <button @click="setModel('kimi-k2', 'Kimi k2'); open=false" class="model-btn"><i class="ph ph-moon text-indigo-300"></i> Kimi k2</button>
-                                        <button @click="setModel('kimi-k2-think', 'Kimi k2 Thinking'); open=false" class="model-btn"><i class="ph ph-brain text-indigo-400"></i> Kimi k2 Thinking</button>
-                                        <button @click="setModel('kimi-free', 'Kimi Free'); open=false" class="model-btn"><i class="ph ph-gift text-indigo-200"></i> Kimi Free</button>
-
-                                        <div class="cat-title">Mistral</div>
-                                        <button @click="setModel('mistral-small', 'Mistral Small'); open=false" class="model-btn"><i class="ph ph-wind text-indigo-400"></i> Mistral Small</button>
-                                        <button @click="setModel('mistral-nemo', 'Mistral Nemo'); open=false" class="model-btn"><i class="ph ph-fish text-indigo-300"></i> Mistral Nemo</button>
-                                        <button @click="setModel('mistral-24b', 'Mistral 24B'); open=false" class="model-btn"><i class="ph ph-wind text-indigo-500"></i> Mistral 24B</button>
-
-                                        <div class="cat-title">Meta (LLaMA)</div>
-                                        <button @click="setModel('llama-4-mav', 'LLaMA 4 Maverick'); open=false" class="model-btn"><i class="ph ph-horse text-blue-500"></i> LLaMA 4 Maverick</button>
-                                        <button @click="setModel('llama-4-scout', 'LLaMA 4 Scout'); open=false" class="model-btn"><i class="ph ph-horse text-blue-400"></i> LLaMA 4 Scout</button>
-                                        <button @click="setModel('llama-3.3-70b', 'LLaMA 3.3 70B'); open=false" class="model-btn"><i class="ph ph-horse text-blue-300"></i> LLaMA 3.3 70B</button>
-
-                                        <div class="cat-title">Медиа (Видео/Фото)</div>
-                                        <button @click="setModel('veo-3.1', 'Veo 3.1 (Video)'); open=false" class="model-btn"><i class="ph ph-film-strip text-red-500"></i> Veo 3.1</button>
-                                        <button @click="setModel('midjourney', 'Midjourney v6'); open=false" class="model-btn"><i class="ph ph-image text-purple-400"></i> Midjourney v6</button>
-                                        <button @click="setModel('recraft-v3', 'Recraft V3 (Image)'); open=false" class="model-btn"><i class="ph ph-paint-brush text-purple-400"></i> Recraft V3</button>
-                                        <button @click="setModel('flux-1.1-ultra', 'Flux Ultra (Image)'); open=false" class="model-btn"><i class="ph ph-image text-green-400"></i> Flux 1.1 Ultra</button>
-                                        <button @click="setModel('luma-ray-2', 'Luma Ray 2 (Video)'); open=false" class="model-btn"><i class="ph ph-film-strip text-yellow-500"></i> Luma Ray 2</button>
                                     </div>
                                 </div>
                             </div>
@@ -265,10 +213,6 @@
 </div>
 
 <style>
-    .cat-title { padding: 6px 12px; font-size: 11px; color: #888; font-weight: 700; text-transform: uppercase; margin-top: 8px; background: rgba(255,255,255,0.05); border-radius: 6px; letter-spacing: 0.05em; }
-    .model-btn { width: 100%; text-align: left; padding: 10px 12px; border-radius: 8px; font-size: 13px; display: flex; align-items: center; gap: 10px; transition: all 0.2s; color: #e5e7eb; }
-    .model-btn:hover { background: rgba(255,255,255,0.1); color: white; transform: translateX(2px); }
-    .model-btn i { font-size: 16px; width: 20px; display: flex; justify-content: center; }
     .custom-scrollbar::-webkit-scrollbar { width: 4px; }
     .custom-scrollbar::-webkit-scrollbar-track { background: #1a1a1a; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #444; border-radius: 2px; }
@@ -290,6 +234,126 @@
 </style>
 
 <script>
+    const AI_GROUPS = [
+        {
+            name: "OpenAI",
+            isOpen: true,
+            icon: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a1.54 1.54 0 0 1 .8312 1.2095v5.39a4.4844 4.4844 0 0 1-5.2877 3.5295zm-6.9735-3.2221a4.5496 4.5496 0 0 1 .7314-5.3374V13.85a.7939.7939 0 0 0 .3927.6813l5.8108 3.3662v2.3324a1.5298 1.5298 0 0 1-.827 1.3418 1.5298 1.5298 0 0 1-1.6163-.1273l-4.4916-2.6738zM5.7347 13.633a4.5153 4.5153 0 0 1-3.2699-4.3218l.0195-.0053 4.8023-2.7718a.7948.7948 0 0 0 .3976-.6772V1.6997a1.5573 1.5573 0 0 1 1.382 1.3223v5.1639l-3.3315 1.9213a4.5147 4.5147 0 0 1 0 3.5258zm2.6732-9.255a4.5428 4.5428 0 0 1 5.297-.7324l.0039.0016-2.0238 1.1685a.7932.7932 0 0 0-.3976.6772v6.694l-5.8108-3.3667V6.4883a1.5408 1.5408 0 0 1 2.9313-2.1105zm10.15 2.1523a4.5153 4.5153 0 0 1 3.2699 4.3218l-.0145.0009-4.8023 2.7718a.7948.7948 0 0 0-.3976.6772v4.1611a1.5573 1.5573 0 0 1-1.382-1.3223v-5.1639l3.3265-1.9213a4.5147 4.5147 0 0 1 0-3.5254zm-2.9103 7.7695l-2.6622-1.5367-2.667 1.5367V9.897l2.667-1.5367 2.6622 1.5367v4.4031z" fill="currentColor"/></svg>`,
+            models: [
+                { id: 'gpt-4o', name: 'GPT-4o' },
+                { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
+                { id: 'gpt-5.2', name: 'GPT 5.2' },
+                { id: 'gpt-5.2-chat', name: 'GPT 5.2 Chat' },
+                { id: 'gpt-5.2-pro', name: 'GPT 5.2 Pro' },
+                { id: 'gpt-5.1', name: 'GPT 5.1' },
+                { id: 'gpt-5.1-codex', name: 'GPT 5.1 Codex' },
+                { id: 'gpt-5.1-chat', name: 'GPT 5.1 Chat' },
+                { id: 'gpt-5', name: 'GPT 5' },
+                { id: 'o1-preview', name: 'o1 Preview' },
+                { id: 'o1-mini', name: 'o1 Mini' },
+                { id: 'gpt-4.1', name: 'GPT 4.1' }
+            ]
+        },
+        {
+            name: "Anthropic",
+            isOpen: false,
+            icon: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M17.422 17.5c-1.33.663-2.73 1.054-4.192 1.168v-4.526h.01c2.253 0 4.226-1.113 5.426-2.827l2.81 1.725c-1.875 2.678-4.956 4.417-8.47 4.46h-.015V22H11v-4.5H9.682c-3.513-.043-6.594-1.782-8.469-4.46l2.81-1.725c1.2 1.714 3.173 2.827 5.426 2.827h.01v4.526c-1.462-.114-2.862-.505-4.192-1.168l-1.973 2.553C5.12 21.173 7.917 22 11 22c3.082 0 5.88-.827 7.907-2.247l-1.485-2.253ZM11 2C7.362 2 4.182 4.09 2.457 7.234l2.81 1.726C6.467 7.246 8.56 6.1 11 6.1s4.533 1.146 5.733 2.86l2.81-1.726C17.818 4.09 14.638 2 11 2Z" fill="currentColor"/></svg>`,
+            models: [
+                { id: 'claude-3.5-sonnet', name: 'Claude 3.5 Sonnet' },
+                { id: 'claude-3-opus', name: 'Claude 3 Opus' },
+                { id: 'claude-3-haiku', name: 'Claude 3 Haiku' },
+                { id: 'claude-3.7-sonnet', name: 'Claude 3.7 Sonnet' },
+                { id: 'claude-4.5-sonnet', name: 'Claude 4.5 Sonnet' },
+                { id: 'claude-opus-4.5', name: 'Claude 4.5 Opus' }
+            ]
+        },
+        {
+            name: "Google",
+            isOpen: false,
+            icon: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>`,
+            models: [
+                { id: 'gemini-3-pro', name: 'Gemini 3 Pro' },
+                { id: 'gemini-3-flash', name: 'Gemini 3 Flash' },
+                { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
+                { id: 'gemini-free', name: 'Gemini Free' }
+            ]
+        },
+        {
+            name: "xAI (Grok)",
+            isOpen: false,
+            icon: `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16.9207 4H20.2507L12.9747 12.316L21.5337 23.682H14.8317L9.58169 16.815L3.57369 23.682H0.241688L7.96269 14.856L-0.207312 4H6.67469L11.4727 10.37L16.9207 4ZM15.7527 21.688H17.5977L5.68469 5.882H3.70469L15.7527 21.688Z" fill="currentColor"/></svg>`,
+            models: [
+                { id: 'grok-4.1-fast', name: 'Grok 4.1 Fast' },
+                { id: 'grok-4', name: 'Grok 4' },
+                { id: 'grok-3', name: 'Grok 3' },
+                { id: 'grok-code-fast', name: 'Grok Code Fast' }
+            ]
+        },
+        {
+            name: "DeepSeek",
+            isOpen: false,
+            icon: `<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg"><path d="M333.6 470.4c-15.8 26.6-47.8 35.2-74.4 19.4s-35.2-47.8-19.4-74.4c15.8-26.6 47.8-35.2 74.4-19.4s35.4 47.8 19.4 74.4zM512 256c-176.8 0-320 143.2-320 320 0 32 4.8 63 13.6 92.4 20.2-12 43.8-19.2 68.8-19.2 57.2 0 106.2 36.6 123.6 86.8h228c17.4-50.2 66.4-86.8 123.6-86.8 25 0 48.6 7.2 68.8 19.2 9-29.4 13.6-60.4 13.6-92.4-0.2-176.8-143.4-320-320.2-320z m252.8 140c26.6 15.8 35.2 47.8 19.4 74.4s-47.8 35.2-74.4 19.4-35.2-47.8-19.4-74.4 47.8-35.2 74.4-19.4z" fill="currentColor"/></svg>`,
+            models: [
+                { id: 'deepseek-v3', name: 'DeepSeek V3' },
+                { id: 'deepseek-r1', name: 'DeepSeek R1' },
+                { id: 'deepseek-v3.2', name: 'DeepSeek V3.2' },
+                { id: 'deepseek-3.1', name: 'DeepSeek 3.1' }
+            ]
+        },
+        {
+            name: "Perplexity",
+            isOpen: false,
+            icon: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="2" fill="none"/><path d="M8 12L12 8L16 12M12 16V8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+            models: [
+                { id: 'sonar-deep', name: 'Sonar Deep' },
+                { id: 'sonar-pro', name: 'Sonar Pro' },
+                { id: 'sonar-reasoning', name: 'Sonar Reasoning' }
+            ]
+        },
+        {
+            name: "Moonshot",
+            isOpen: false,
+            icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" xmlns="http://www.w3.org/2000/svg"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>`,
+            models: [
+                { id: 'kimi-k2', name: 'Kimi k2' },
+                { id: 'kimi-k2-think', name: 'Kimi k2 Thinking' },
+                { id: 'kimi-free', name: 'Kimi Free' }
+            ]
+        },
+        {
+            name: "Mistral",
+            isOpen: false,
+            icon: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M19.9 83.2V32.4L37 16.7l17.1 15.7 17.1-15.7 17.1 15.7v50.8L71.2 99V48.1L54.1 32.4 37 48.1v50.9z" fill="currentColor"/></svg>`,
+            models: [
+                { id: 'mistral-small', name: 'Mistral Small' },
+                { id: 'mistral-nemo', name: 'Mistral Nemo' },
+                { id: 'mistral-24b', name: 'Mistral 24B' }
+            ]
+        },
+        {
+            name: "Meta (LLaMA)",
+            isOpen: false,
+            icon: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M16.29 4c2.58 0 4.56 1.5 4.56 3.91 0 1.25-.56 2.12-1.39 3.03-.84.92-1.92 1.63-2.98 2.29-2.14 1.34-4.22 2.5-4.22 4.77h-.04c0-2.28-2.09-3.43-4.23-4.77-1.06-.66-2.14-1.37-2.98-2.29C4.18 10.03 3.62 9.16 3.62 7.91 3.62 5.5 5.6 4 8.18 4c1.61 0 2.92.76 3.82 2.06C12.9 4.76 14.21 4 15.82 4h.47z" stroke="currentColor" stroke-width="2" fill="none"/></svg>`,
+            models: [
+                { id: 'llama-4-mav', name: 'LLaMA 4 Maverick' },
+                { id: 'llama-4-scout', name: 'LLaMA 4 Scout' },
+                { id: 'llama-3.3-70b', name: 'LLaMA 3.3 70B' }
+            ]
+        },
+        {
+            name: "Медиа (Генерация)",
+            isOpen: false,
+            icon: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm0 2v12h16V6H4zm3 3a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm10 8H7v-1l4-4 2 2 3-3 3 3v3z" fill="currentColor"/></svg>`,
+            models: [
+                { id: 'midjourney', name: 'Midjourney v6' },
+                { id: 'recraft-v3', name: 'Recraft V3' },
+                { id: 'flux-1.1-ultra', name: 'Flux Ultra' },
+                { id: 'veo-3.1', name: 'Veo 3.1 (Video)' },
+                { id: 'luma-ray-2', name: 'Luma Ray 2 (Video)' }
+            ]
+        }
+    ];
+
     const MODEL_CAPABILITIES = {
         'default': { vision: true, web: true },
         'recraft-v3': { vision: false, web: false },
@@ -302,18 +366,6 @@
         'deepseek-r1': { vision: false, web: false },
     };
 
-    // Карта имен для красивого отображения в селекторе
-    const MODEL_NAMES = {
-        'gpt-4o': 'GPT-4o', 'gpt-4o-mini': 'GPT-4o Mini',
-        'gpt-5.2': 'GPT 5.2', 'gpt-5.1': 'GPT 5.1', 'gpt-5': 'GPT 5',
-        'claude-3.5-sonnet': 'Claude 3.5 Sonnet', 'claude-3-opus': 'Claude 3 Opus',
-        'gemini-3-pro': 'Gemini 3 Pro', 'gemini-2.5-flash': 'Gemini 2.5 Flash',
-        'deepseek-v3': 'DeepSeek V3', 'deepseek-r1': 'DeepSeek R1',
-        'recraft-v3': 'Recraft V3', 'flux-1.1-ultra': 'Flux Ultra', 'midjourney': 'Midjourney v6',
-        'veo-3.1': 'Veo 3.1', 'luma-ray-2': 'Luma Ray 2',
-        // Добавь остальные по необходимости, дефолт будет ID
-    };
-
     function appLogic() {
         return {
             sidebarOpen: false, isTyping: false, isUploading: false,
@@ -322,12 +374,22 @@
             activeChatId: null, chatHistory: [], messages: [],
             temperature: 0.7, webSearch: false,
             replyContext: null,
-            
+            aiGroups: AI_GROUPS,
+
             balance: parseFloat("{{ balance | default(0) }}"),
 
             get canVision() { return (MODEL_CAPABILITIES[this.currentModel] || MODEL_CAPABILITIES['default']).vision; },
             get canSearch() { return (MODEL_CAPABILITIES[this.currentModel] || MODEL_CAPABILITIES['default']).web; },
             
+            getCurrentGroupIcon() {
+                for (const group of this.aiGroups) {
+                    if (group.models.find(m => m.id === this.currentModel)) {
+                        return group.icon;
+                    }
+                }
+                return this.aiGroups[0].icon;
+            },
+
             async init() { await this.loadHistory(); },
             async loadHistory() { try { const res = await fetch('/api/chats'); if (res.ok) this.chatHistory = await res.json(); } catch (e) {} },
             
@@ -342,9 +404,13 @@
                         const data = await res.json();
                         this.messages = data.messages; 
                         
-                        // ОБНОВЛЯЕМ МОДЕЛЬ ПРИ ПЕРЕКЛЮЧЕНИИ ЧАТА
                         if (data.model) {
-                            this.setModel(data.model, MODEL_NAMES[data.model] || data.model);
+                            let foundName = data.model;
+                            for (const group of this.aiGroups) {
+                                const m = group.models.find(x => x.id === data.model);
+                                if (m) foundName = m.name;
+                            }
+                            this.setModel(data.model, foundName);
                         }
                         
                         this.scrollToBottom(); 
@@ -471,7 +537,7 @@
             async uploadFile(event) {
                 const file = event.target.files[0]; if (!file) return;
                 
-                this.isUploading = true; // <-- ВКЛЮЧАЕМ СПИННЕР
+                this.isUploading = true; 
                 
                 const formData = new FormData(); formData.append('file', file);
                 try { 
@@ -484,7 +550,7 @@
                 } catch(e) { 
                     alert("Ошибка загрузки"); 
                 } finally {
-                    this.isUploading = false; // <-- ВЫКЛЮЧАЕМ СПИННЕР
+                    this.isUploading = false;
                 }
             },
 
