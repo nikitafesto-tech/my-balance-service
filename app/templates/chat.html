@@ -43,7 +43,7 @@
                 {% endif %}
                 <div class="flex-1 min-w-0">
                     <div class="text-sm font-medium truncate">{{ name }}</div>
-                    <div class="text-xs text-green">{{ balance }} ₽</div>
+                    <div class="text-xs text-green" x-text="(balance || 0).toFixed(2) + ' ₽'">{{ balance }} ₽</div>
                 </div>
                 <i class="ph ph-gear text-gray-400"></i>
             </a>
@@ -323,7 +323,7 @@
 </style>
 
 <script>
-    // Настройки возможностей моделей (добавьте сюда, если нужно запретить vision/web для конкретной модели)
+    // Настройки возможностей моделей
     const MODEL_CAPABILITIES = {
         'default': { vision: true, web: true },
         'recraft-v3': { vision: false, web: false },
@@ -344,6 +344,9 @@
             activeChatId: null, chatHistory: [], messages: [],
             temperature: 0.7, webSearch: false,
             replyContext: null,
+            
+            // ИСПРАВЛЕНО: Теперь это безопасная строка, которая парсится в число
+            balance: parseFloat("{{ balance | default(0) }}"),
 
             get canVision() { return (MODEL_CAPABILITIES[this.currentModel] || MODEL_CAPABILITIES['default']).vision; },
             get canSearch() { return (MODEL_CAPABILITIES[this.currentModel] || MODEL_CAPABILITIES['default']).web; },
@@ -381,11 +384,9 @@
                 this.userInput = ''; this.attachedFileUrl = null; this.replyContext = null; 
                 this.$refs.chatInput.style.height = 'auto';
 
-                // Добавляем сообщение юзера
                 const userMsgId = Date.now();
                 this.messages.push({ role: 'user', content: textToSend, attachment_url: fileUrl, id: userMsgId });
                 
-                // Добавляем плейсхолдер для бота
                 const botMsgId = userMsgId + 1;
                 this.messages.push({ role: 'assistant', content: '', id: botMsgId, isStreaming: true });
                 
@@ -400,24 +401,30 @@
                     
                     let url = !this.activeChatId ? '/api/chats/new' : `/api/chats/${this.activeChatId}/message`;
                     
-                    // ЗАПРОС
                     const response = await fetch(url, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
                     
-                    // ЕСЛИ ЭТО ОБЫЧНЫЙ JSON (Медиа)
+                    // Обработка ошибки 402 (Нет денег)
+                    if (response.status === 402) {
+                        const errData = await response.json();
+                        const msg = this.messages.find(m => m.id === botMsgId);
+                        if(msg) { msg.content = "⛔ " + errData.detail; msg.isStreaming = false; }
+                        return;
+                    }
+
                     const contentType = response.headers.get("content-type");
                     if (contentType && contentType.includes("application/json")) {
                         const data = await response.json();
-                        // Обновляем данные (ID чата, полный ответ)
                         if (!this.activeChatId && data.chat_id) { this.activeChatId = data.chat_id; await this.loadHistory(); }
                         
-                        // Заменяем плейсхолдер на реальный ответ
+                        // ОБНОВЛЯЕМ БАЛАНС (МЕДИА)
+                        if (data.balance !== undefined) { this.balance = data.balance; }
+
                         const msgIndex = this.messages.findIndex(m => m.id === botMsgId);
                         if(msgIndex !== -1) {
                             const lastMsg = data.messages[data.messages.length - 1];
                             this.messages[msgIndex] = { ...this.messages[msgIndex], content: lastMsg.content, image_url: lastMsg.image_url, isStreaming: false };
                         }
                     } 
-                    // ЕСЛИ ЭТО ПОТОК (Стриминг)
                     else {
                         const reader = response.body.getReader();
                         const decoder = new TextDecoder();
@@ -436,16 +443,24 @@
                                         this.activeChatId = json.chat_id;
                                         this.loadHistory();
                                     }
-                                    if (json.type === 'content') {
+                                    else if (json.type === 'content') {
                                         botText += json.text;
                                         const msg = this.messages.find(m => m.id === botMsgId);
                                         if(msg) msg.content = botText;
                                         this.scrollToBottom();
                                     }
+                                    // НОВОЕ: ОБНОВЛЯЕМ БАЛАНС (СТРИМ)
+                                    else if (json.type === 'balance') {
+                                        this.balance = json.balance;
+                                    }
+                                    else if (json.type === 'error') {
+                                        botText += `\n[Ошибка: ${json.text}]`;
+                                        const msg = this.messages.find(m => m.id === botMsgId);
+                                        if(msg) msg.content = botText;
+                                    }
                                 } catch (e) {}
                             }
                         }
-                        // Стрим завершен
                         const msg = this.messages.find(m => m.id === botMsgId);
                         if(msg) msg.isStreaming = false;
                     }
@@ -464,14 +479,10 @@
                 try { const res = await fetch('/api/upload', { method: 'POST', body: formData }); const data = await res.json(); if(data.url) { this.attachedFileUrl = data.url; this.$refs.fileInput.value = ''; } } catch(e) { alert("Ошибка загрузки"); }
             },
 
-            // ПАРСЕР (Think + Code)
             parseMarkdown(text) {
                 if (!text) return "";
-                // 1. <think>
                 text = text.replace(/<think>([\s\S]*?)<\/think>/g, '<details class="reasoning"><summary>Размышления</summary><div class="reasoning-content">$1</div></details>');
-                // 2. Markdown
                 let html = marked.parse(text);
-                // 3. Code Blocks
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, 'text/html');
                 doc.querySelectorAll('pre code').forEach((block) => {

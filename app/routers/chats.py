@@ -4,12 +4,16 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from datetime import datetime
 import json
+import logging
 
 from app.database import get_db
 from app.models import UserWallet, Chat, Message
 # Импортируем общую зависимость
 from app.dependencies import get_current_user
 from app.services.ai_generation import generate_ai_response_stream, generate_ai_response_media
+from app.services.casdoor import update_casdoor_balance
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/chats", tags=["chats"])
 
@@ -46,6 +50,10 @@ async def chat_reply(chat_id: int, request: Request, data: dict = Body(...), db:
 async def handle_chat_request(request: Request, data: dict, db: Session, is_new=False, chat_id=None):
     user = get_current_user(request, db)
     if not user: raise HTTPException(401)
+
+    # === ПРОВЕРКА БАЛАНСА ===
+    if user.balance <= 0:
+        raise HTTPException(status_code=402, detail="Недостаточно средств. Пополните баланс.")
 
     user_text = data.get("message", "")
     model = data.get("model", "gpt-4o")
@@ -86,13 +94,22 @@ async def handle_chat_request(request: Request, data: dict, db: Session, is_new=
                (model in ["fal-ai/recraft-v3", "fal-ai/flux-pro/v1.1-ultra"])
 
     if is_media:
-        # Обычный запрос (ждем полного ответа)
-        reply_text, cost = await generate_ai_response_media(model, messages_payload, user.balance, attach)
+        # --- МЕДИА ГЕНЕРАЦИЯ (Ждем ответ) ---
+        try:
+            reply_text, cost = await generate_ai_response_media(model, messages_payload, user.balance, attach)
+        except Exception as e:
+            raise HTTPException(500, f"Generation Error: {e}")
         
+        # Списание средств
         if cost > 0:
             user.balance = max(0, user.balance - cost)
             db.add(user)
-            # await update_casdoor_balance(user.casdoor_id, user.balance)
+            db.commit()
+            # Синхронизация с Casdoor (фоновая задача, можно не ждать, но для надежности ждем)
+            try:
+                await update_casdoor_balance(user.casdoor_id, user.balance)
+            except Exception as e:
+                logger.error(f"Failed to sync balance: {e}")
 
         bot_msg = Message(chat_id=chat.id, role="assistant", content=reply_text)
         if "[Generated]" in reply_text:
@@ -102,9 +119,10 @@ async def handle_chat_request(request: Request, data: dict, db: Session, is_new=
         db.add(bot_msg)
         db.commit()
 
-        # Возвращаем обычный JSON
+        # Возвращаем JSON с НОВЫМ БАЛАНСОМ
         return {
             "chat_id": chat.id,
+            "balance": float(user.balance), # <--- Важно для фронтенда
             "messages": [
                 {"role": "user", "content": user_text, "attachment_url": attach},
                 {"role": "assistant", "content": reply_text, "image_url": bot_msg.image_url}
@@ -112,7 +130,7 @@ async def handle_chat_request(request: Request, data: dict, db: Session, is_new=
         }
 
     else:
-        # Текстовый запрос (Стриминг)
+        # --- ТЕКСТОВЫЙ СТРИМИНГ ---
         async def response_generator():
             full_text = ""
             total_cost = 0.0
@@ -129,15 +147,23 @@ async def handle_chat_request(request: Request, data: dict, db: Session, is_new=
                     total_cost = chunk_cost
                     yield json.dumps({"type": "content", "text": chunk_text}) + "\n"
                 
-                # 3. Финализация (Сохранение в БД)
-                bot_msg = Message(chat_id=chat.id, role="assistant", content=full_text)
+                # 3. Финализация и списание
                 if total_cost > 0:
                     user.balance = max(0, user.balance - total_cost)
                     db.add(user)
-                    # await update_casdoor_balance...
-                
+                    db.commit()
+                    try:
+                        await update_casdoor_balance(user.casdoor_id, user.balance)
+                    except Exception as e:
+                        logger.error(f"Failed to sync balance: {e}")
+
+                # 4. Сохраняем сообщение
+                bot_msg = Message(chat_id=chat.id, role="assistant", content=full_text)
                 db.add(bot_msg)
                 db.commit()
+
+                # 5. ОТПРАВЛЯЕМ НОВЫЙ БАЛАНС
+                yield json.dumps({"type": "balance", "balance": float(user.balance)}) + "\n"
                 
             except Exception as e:
                 yield json.dumps({"type": "error", "text": str(e)}) + "\n"
