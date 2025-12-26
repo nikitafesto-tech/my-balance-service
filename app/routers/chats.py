@@ -9,12 +9,19 @@ import logging
 from app.database import get_db
 from app.models import UserWallet, Chat, Message
 from app.dependencies import get_current_user
-from app.services.ai_generation import generate_ai_response_stream, generate_ai_response_media
+# Импортируем get_models_config из нашего нового единого источника
+from app.services.ai_generation import generate_ai_response_stream, generate_ai_response_media, get_models_config
 from app.services.casdoor import update_casdoor_balance
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/chats", tags=["chats"])
+
+# === НОВЫЙ ЭНДПОИНТ: Отдает список моделей фронтенду ===
+@router.get("/models")
+def get_available_models():
+    """Возвращает список доступных моделей и групп для фронтенда"""
+    return get_models_config()
 
 @router.get("")
 def get_chats(request: Request, db: Session = Depends(get_db)):
@@ -37,11 +44,11 @@ def get_chat_history(chat_id: int, request: Request, db: Session = Depends(get_d
             "image_url": m.image_url, "attachment_url": m.attachment_url
         })
     
-    # === ИЗМЕНЕНИЕ: Возвращаем не просто список, а объект с моделью ===
+    # Возвращаем объект с моделью, чтобы фронтенд мог переключить селектор
     return {
         "id": chat.id,
         "title": chat.title,
-        "model": chat.model,  # <-- Важно: возвращаем модель чата
+        "model": chat.model,
         "messages": messages
     }
 
@@ -61,7 +68,7 @@ async def handle_chat_request(request: Request, data: dict, db: Session, is_new=
         raise HTTPException(status_code=402, detail="Недостаточно средств. Пополните баланс.")
 
     user_text = data.get("message", "")
-    model = data.get("model", "gpt-4o")
+    model = data.get("model", "openai/gpt-4o") # Дефолтная модель
     temp = data.get("temperature", 0.7)
     web = data.get("web_search", False)
     attach = data.get("attachment_url")
@@ -77,7 +84,7 @@ async def handle_chat_request(request: Request, data: dict, db: Session, is_new=
         chat = db.query(Chat).filter_by(id=chat_id, user_casdoor_id=user.casdoor_id).first()
         if not chat: raise HTTPException(404, "Chat not found")
         chat.updated_at = datetime.utcnow()
-        # Если чат старый, можно обновить модель на последнюю использованную (опционально)
+        # Можно обновлять модель чата, если юзер переключил её
         # chat.model = model 
 
     # 2. Сохраняем сообщение пользователя
