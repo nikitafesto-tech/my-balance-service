@@ -6,30 +6,23 @@ from datetime import datetime
 import json
 
 from app.database import get_db
-from app.models import UserWallet, UserSession, Chat, Message
-# Импортируем генераторы из ai_generation (функции обновим следующим шагом)
+from app.models import UserWallet, Chat, Message
+# Импортируем общую зависимость
+from app.dependencies import get_current_user
 from app.services.ai_generation import generate_ai_response_stream, generate_ai_response_media
-
-# Вспомогательная функция для получения юзера (копия из main, чтобы избежать циклических импортов)
-def get_current_user_local(request: Request, db: Session):
-    session_id = request.cookies.get("session_id")
-    if not session_id: return None
-    sess = db.query(UserSession).filter_by(session_id=session_id).first()
-    if not sess: return None
-    return db.query(UserWallet).filter_by(casdoor_id=sess.token).first()
 
 router = APIRouter(prefix="/api/chats", tags=["chats"])
 
 @router.get("")
 def get_chats(request: Request, db: Session = Depends(get_db)):
-    user = get_current_user_local(request, db)
+    user = get_current_user(request, db)
     if not user: raise HTTPException(401)
     chats = db.query(Chat).filter_by(user_casdoor_id=user.casdoor_id).order_by(desc(Chat.updated_at)).all()
     return [{"id": c.id, "title": c.title, "date": c.updated_at.isoformat()} for c in chats]
 
 @router.get("/{chat_id}")
 def get_chat_history(chat_id: int, request: Request, db: Session = Depends(get_db)):
-    user = get_current_user_local(request, db)
+    user = get_current_user(request, db)
     if not user: raise HTTPException(401)
     chat = db.query(Chat).filter_by(id=chat_id, user_casdoor_id=user.casdoor_id).first()
     if not chat: raise HTTPException(404, "Chat not found")
@@ -51,7 +44,7 @@ async def chat_reply(chat_id: int, request: Request, data: dict = Body(...), db:
     return await handle_chat_request(request, data, db, chat_id=chat_id)
 
 async def handle_chat_request(request: Request, data: dict, db: Session, is_new=False, chat_id=None):
-    user = get_current_user_local(request, db)
+    user = get_current_user(request, db)
     if not user: raise HTTPException(401)
 
     user_text = data.get("message", "")
@@ -87,8 +80,7 @@ async def handle_chat_request(request: Request, data: dict, db: Session, is_new=
 
     # === РАЗДЕЛЕНИЕ НА СТРИМ И МЕДИА ===
     
-    # Список моделей, которые НЕ поддерживают стриминг (генерация фото/видео)
-    # Я добавил сюда основные из твоего списка, если добавишь новые медиа-модели - добавь их ID сюда
+    # Список моделей, которые НЕ поддерживают стриминг
     media_models_keywords = ["recraft", "flux", "midjourney", "veo", "sora", "luma", "video", "image"]
     is_media = any(kw in model.lower() for kw in media_models_keywords) or \
                (model in ["fal-ai/recraft-v3", "fal-ai/flux-pro/v1.1-ultra"])
@@ -100,7 +92,7 @@ async def handle_chat_request(request: Request, data: dict, db: Session, is_new=
         if cost > 0:
             user.balance = max(0, user.balance - cost)
             db.add(user)
-            # await update_casdoor_balance(user.casdoor_id, user.balance) # Если нужно
+            # await update_casdoor_balance(user.casdoor_id, user.balance)
 
         bot_msg = Message(chat_id=chat.id, role="assistant", content=reply_text)
         if "[Generated]" in reply_text:

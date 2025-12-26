@@ -26,6 +26,8 @@ from yookassa import Configuration, Payment as YooPayment
 
 # === НОВЫЙ ИМПОРТ ===
 from app.routers import chats
+# === ИМПОРТ ЗАВИСИМОСТЕЙ ===
+from app.dependencies import get_current_user
 
 # === ИМПОРТЫ БАЗЫ ===
 from app.database import engine, get_db, Base
@@ -94,12 +96,7 @@ if os.getenv("YOOKASSA_SHOP_ID"):
 
 # ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
 
-def get_current_user(request: Request, db: Session):
-    session_id = request.cookies.get("session_id")
-    if not session_id: return None
-    sess = db.query(UserSession).filter_by(session_id=session_id).first()
-    if not sess: return None
-    return db.query(UserWallet).filter_by(casdoor_id=sess.token).first()
+# Функция get_current_user удалена, так как импортируется из app.dependencies
 
 def generate_pkce():
     verifier = secrets.token_urlsafe(32)
