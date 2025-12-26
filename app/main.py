@@ -1,38 +1,27 @@
 import logging
 import sys
 import os
-import urllib.parse
-import uuid
-import secrets
-import hashlib
-import base64
-import httpx
-import random
-import hmac
-import smtplib
-from datetime import datetime
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 
-from fastapi import FastAPI, Request, Depends, HTTPException, Form, Body, UploadFile, File
-from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
+from fastapi import FastAPI, Request, Depends, HTTPException, Body, UploadFile, File
+from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
 
 # ЮKassa
 from yookassa import Configuration, Payment as YooPayment
 
-# === НОВЫЙ ИМПОРТ ===
-from app.routers import chats
+# === ИМПОРТ РОУТЕРОВ ===
+from app.routers import chats, auth
+
 # === ИМПОРТ ЗАВИСИМОСТЕЙ ===
 from app.dependencies import get_current_user
+from app.services.casdoor import update_casdoor_balance
+from app.services.s3 import upload_file_to_s3
 
 # === ИМПОРТЫ БАЗЫ ===
 from app.database import engine, get_db, Base
-from app.models import UserWallet, UserSession, Payment, EmailCode, Chat, Message
-from app.services.s3 import upload_file_to_s3
+from app.models import UserWallet, UserSession, Payment
 
 # --- ЛОГИРОВАНИЕ ---
 logging.basicConfig(level=logging.INFO, stream=sys.stdout)
@@ -57,173 +46,16 @@ async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Global Error: {exc}", exc_info=True)
     return JSONResponse(status_code=500, content={"message": "Internal Server Error", "detail": str(exc)})
 
-# === ПОДКЛЮЧАЕМ РОУТЕР ЧАТОВ (Вся логика теперь там) ===
+# === ПОДКЛЮЧАЕМ РОУТЕРЫ ===
 app.include_router(chats.router)
+app.include_router(auth.router)
 
-# --- CONFIG (AUTH, PAYMENTS) ---
-SITE_URL = os.getenv("SITE_URL", "http://localhost:8081")
-AUTH_URL = os.getenv("AUTH_URL", "http://localhost:8000")
-
-VK_CLIENT_ID = os.getenv("VK_CLIENT_ID")
-VK_CLIENT_SECRET = os.getenv("VK_CLIENT_SECRET")
-VK_REDIRECT_URI = f"{SITE_URL}/callback/vk"
-
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
-GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-GOOGLE_REDIRECT_URI = f"{SITE_URL}/callback/google-direct"
-
-YANDEX_CLIENT_ID = os.getenv("YANDEX_CLIENT_ID")
-YANDEX_CLIENT_SECRET = os.getenv("YANDEX_CLIENT_SECRET")
-YANDEX_REDIRECT_URI = f"{SITE_URL}/callback/yandex-direct"
-
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-CASDOOR_CLIENT_ID = os.getenv("CASDOOR_CLIENT_ID")
-CASDOOR_CLIENT_SECRET = os.getenv("CASDOOR_CLIENT_SECRET")
-
-# SMTP
-SMTP_HOST = os.getenv("SMTP_HOST")
-try:
-    SMTP_PORT = int(os.getenv("SMTP_PORT", 465))
-except:
-    SMTP_PORT = 465
-SMTP_USER = os.getenv("SMTP_USER")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
-
-# ЮKassa
+# ЮKassa Config
 if os.getenv("YOOKASSA_SHOP_ID"):
     Configuration.account_id = os.getenv("YOOKASSA_SHOP_ID")
     Configuration.secret_key = os.getenv("YOOKASSA_SECRET_KEY")
 
-# ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
-
-# Функция get_current_user удалена, так как импортируется из app.dependencies
-
-def generate_pkce():
-    verifier = secrets.token_urlsafe(32)
-    m = hashlib.sha256()
-    m.update(verifier.encode('ascii'))
-    challenge = base64.urlsafe_b64encode(m.digest()).decode('ascii').rstrip('=')
-    return verifier, challenge
-
-def check_telegram_authorization(data: dict, bot_token: str) -> bool:
-    if not bot_token: return False
-    check_hash = data.get('hash')
-    if not check_hash: return False
-    data_check_arr = []
-    for key, value in data.items():
-        if key != 'hash': data_check_arr.append(f'{key}={value}')
-    data_check_arr.sort()
-    data_check_string = '\n'.join(data_check_arr)
-    secret_key = hashlib.sha256(bot_token.encode()).digest()
-    hash_calc = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
-    return hash_calc == check_hash
-
-def send_email_via_smtp(to_email, code):
-    if not SMTP_HOST or not SMTP_USER or not SMTP_PASSWORD:
-        logger.error("SMTP credentials not configured in .env")
-        return False
-        
-    try:
-        msg = MIMEMultipart()
-        msg['From'] = SMTP_USER
-        msg['To'] = to_email
-        msg['Subject'] = f"Код входа: {code}"
-        body = f"<h2>Ваш код для входа: {code}</h2><p>Если вы не запрашивали код, проигнорируйте это письмо.</p>"
-        msg.attach(MIMEText(body, 'html'))
-        
-        if SMTP_PORT == 465:
-            server = smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT)
-        else:
-            server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
-            server.starttls()
-            
-        server.login(SMTP_USER, SMTP_PASSWORD)
-        server.send_message(msg)
-        server.quit()
-        logger.info(f"Email sent to {to_email}")
-        return True
-    except Exception as e:
-        logger.error(f"SMTP Error: {e}")
-        return False
-
-# --- CASDOOR SYNC ---
-
-async def sync_user_to_casdoor(user_data, provider_prefix):
-    user_id = str(user_data.get("id"))
-    full_name = user_data.get("name") or f"User {user_id}"
-    casdoor_username = f"{provider_prefix}_{user_id}"
-    
-    casdoor_user = {
-        "owner": "users", "name": casdoor_username, "displayName": full_name,
-        "avatar": user_data.get("avatar", ""), "email": user_data.get("email", ""),
-        "phone": user_data.get("phone", ""), "id": user_id, "type": "normal-user",
-        "properties": {"oauth_Source": provider_prefix}, "signupApplication": "Myservice"
-    }
-    
-    api_url_add = "http://casdoor:8000/api/add-user"
-    api_url_update = "http://casdoor:8000/api/update-user"
-    
-    async with httpx.AsyncClient() as client:
-        try:
-            auth = (CASDOOR_CLIENT_ID, CASDOOR_CLIENT_SECRET)
-            resp = await client.post(api_url_add, json=casdoor_user, auth=auth)
-            if resp.status_code != 200 or resp.json().get('status') != 'ok':
-                await client.post(api_url_update, json=casdoor_user, auth=auth)
-        except Exception as e:
-            logger.error(f"Casdoor Sync Error: {e}")
-    return casdoor_username
-
-async def update_casdoor_balance(user_id, new_balance):
-    full_id = f"users/{user_id}"
-    api_base = "http://casdoor:8000"
-    auth = (CASDOOR_CLIENT_ID, CASDOOR_CLIENT_SECRET)
-    
-    async with httpx.AsyncClient() as client:
-        try:
-            resp = await client.get(f"{api_base}/api/get-user?id={full_id}", auth=auth)
-            if resp.status_code != 200: return
-            
-            user_data = resp.json().get('data')
-            if not user_data: return
-            
-            user_data['balance'] = float(new_balance)
-            user_data['balanceCurrency'] = "RUB"
-            
-            await client.post(f"{api_base}/api/update-user?id={full_id}", json=user_data, auth=auth)
-        except Exception as e:
-            logger.error(f"Casdoor Balance Update Error: {e}")
-
-async def finalize_login(data, prefix, db):
-    await sync_user_to_casdoor(data, prefix)
-
-def update_session_cookie(response, data, prefix, db):
-    full_id = f"{prefix}_{data['id']}"
-    try:
-        wallet = db.query(UserWallet).filter(UserWallet.casdoor_id == full_id).first()
-        if not wallet:
-            wallet = UserWallet(
-                casdoor_id=full_id, email=data['email'], name=data['name'], 
-                avatar=data['avatar'], phone=data['phone'], balance=0.0
-            )
-            db.add(wallet)
-        else:
-            wallet.name = data['name']
-            wallet.avatar = data['avatar']
-            if data['email']: wallet.email = data['email']
-        db.commit()
-
-        new_session_id = str(uuid.uuid4())
-        db_session = UserSession(session_id=new_session_id, token=full_id)
-        db.add(db_session)
-        db.commit()
-        
-        response.set_cookie(key="session_id", value=new_session_id, httponly=True, samesite="lax")
-        return response
-    except Exception as e:
-        logger.error(f"Login DB error: {e}")
-        raise e
-
-# ==================== МАРШРУТЫ (PAGES) ====================
+# ==================== МАРШРУТЫ СТРАНИЦ (UI) ====================
 
 @app.get("/")
 def home(request: Request, db: Session = Depends(get_db)):
@@ -256,52 +88,18 @@ def profile(request: Request, db: Session = Depends(get_db)):
         "avatar": user.avatar
     })
 
-@app.get("/logout")
-def logout(request: Request, db: Session = Depends(get_db)):
-    session_id = request.cookies.get("session_id")
-    if session_id:
-        db.query(UserSession).filter_by(session_id=session_id).delete()
-        db.commit()
-    resp = RedirectResponse("/login")
-    resp.delete_cookie("session_id")
-    resp.delete_cookie("vk_verifier")
-    return resp
-
 @app.post("/api/upload")
 async def upload_file(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db)):
-    """Загрузка в S3 (остается здесь или можно вынести)"""
     user = get_current_user(request, db)
     if not user: raise HTTPException(401)
     
     content = await file.read()
-    # Эта функция теперь возвращает безопасное имя файла
     url = await upload_file_to_s3(content, file.filename, file.content_type)
     
     if not url: raise HTTPException(500, "S3 Upload Failed")
     return {"url": url, "filename": file.filename}
 
-# ==================== AUTH & PAYMENT ENDPOINTS (БЕЗ ИЗМЕНЕНИЙ) ====================
-
-@app.post("/auth/email/request-code")
-async def request_email_code(data: dict = Body(...), db: Session = Depends(get_db)):
-    email = data.get("email")
-    if not email: return JSONResponse({"error": "No email"}, 400)
-    code = str(random.randint(1000,9999))
-    db.query(EmailCode).filter_by(email=email).delete()
-    db.add(EmailCode(email=email, code=code))
-    db.commit()
-    if send_email_via_smtp(email, code): return {"status": "ok"}
-    return JSONResponse({"error": "SMTP Error. Check logs."}, 500)
-
-@app.post("/auth/email/verify-code")
-async def verify_email_code(data: dict = Body(...), db: Session = Depends(get_db)):
-    email, code = data.get("email"), data.get("code")
-    record = db.query(EmailCode).filter_by(email=email, code=code).first()
-    if not record: return JSONResponse({"error": "Bad code"}, 400)
-    db.delete(record)
-    user_data = {"id": email.replace("@","_"), "email": email, "name": email.split("@")[0], "avatar": "", "phone": ""}
-    await finalize_login(user_data, "email", db)
-    return update_session_cookie(JSONResponse({"status": "ok"}), user_data, "email", db)
+# ==================== ПЛАТЕЖИ (Остаются здесь пока) ====================
 
 @app.post("/payment/create")
 async def create_payment(request: Request, data: dict = Body(...), db: Session = Depends(get_db)):
@@ -339,70 +137,3 @@ async def payment_webhook(request: Request, db: Session = Depends(get_db)):
         return {"status": "ok"}
     except:
         return JSONResponse({"status": "error"}, 500)
-
-# === CALLBACKS (VK, GOOGLE, YANDEX, TG) ===
-
-@app.get("/login/vk-direct")
-def login_vk_direct():
-    verifier, challenge = generate_pkce()
-    params = {"client_id": VK_CLIENT_ID, "redirect_uri": VK_REDIRECT_URI, "response_type": "code", "scope": "vkid.personal_info email phone", "code_challenge": challenge, "code_challenge_method": "S256", "state": "vk_login"}
-    resp = RedirectResponse(f"https://id.vk.com/authorize?{urllib.parse.urlencode(params)}")
-    resp.set_cookie("vk_verifier", verifier, httponly=True, samesite="lax")
-    return resp
-
-@app.get("/callback/vk")
-async def callback_vk(code: str, request: Request, db: Session = Depends(get_db)):
-    verifier = request.cookies.get("vk_verifier")
-    device_id = request.query_params.get("device_id") or str(uuid.uuid4())
-    if not verifier: return RedirectResponse("/login")
-    async with httpx.AsyncClient() as client:
-        token_resp = await client.post("https://id.vk.com/oauth2/auth", data={"grant_type": "authorization_code", "code": code, "client_id": VK_CLIENT_ID, "client_secret": VK_CLIENT_SECRET, "code_verifier": verifier, "redirect_uri": VK_REDIRECT_URI, "device_id": device_id})
-        access_token = token_resp.json().get("access_token")
-        if not access_token: return HTMLResponse(f"Error VK: {token_resp.text}")
-        user_resp = await client.post("https://id.vk.com/oauth2/user_info", data={"access_token": access_token, "client_id": VK_CLIENT_ID})
-        user_info = user_resp.json().get("user", {})
-    clean_data = {"id": user_info.get("user_id"), "name": f"{user_info.get('first_name','')}".strip(), "avatar": user_info.get("avatar", ""), "email": user_info.get("email", ""), "phone": user_info.get("phone", "")}
-    await finalize_login(clean_data, "vk", db)
-    return update_session_cookie(RedirectResponse("/"), clean_data, "vk", db)
-
-@app.get("/callback/telegram")
-async def callback_telegram(request: Request, db: Session = Depends(get_db)):
-    data = dict(request.query_params)
-    if not check_telegram_authorization(data, TELEGRAM_BOT_TOKEN): return JSONResponse({"error": "Auth failed"}, 400)
-    clean_data = {"id": data.get("id"), "name": f"{data.get('first_name','')} {data.get('last_name','')}".strip(), "avatar": data.get("photo_url",""), "email": f"tg_{data.get('id')}@no.mail", "phone": ""}
-    await finalize_login(clean_data, "telegram", db)
-    return update_session_cookie(RedirectResponse("/"), clean_data, "telegram", db)
-
-@app.get("/login/google-direct")
-def login_google_direct():
-    params = {"client_id": GOOGLE_CLIENT_ID, "redirect_uri": GOOGLE_REDIRECT_URI, "response_type": "code", "scope": "openid email profile", "access_type": "online", "prompt": "select_account"}
-    return RedirectResponse(f"https://accounts.google.com/o/oauth2/v2/auth?{urllib.parse.urlencode(params)}")
-
-@app.get("/callback/google-direct")
-async def callback_google_direct(code: str, db: Session = Depends(get_db)):
-    async with httpx.AsyncClient() as client:
-        token_resp = await client.post("https://oauth2.googleapis.com/token", data={"client_id": GOOGLE_CLIENT_ID, "client_secret": GOOGLE_CLIENT_SECRET, "code": code, "grant_type": "authorization_code", "redirect_uri": GOOGLE_REDIRECT_URI})
-        access_token = token_resp.json().get("access_token")
-        user_resp = await client.get("https://www.googleapis.com/oauth2/v3/userinfo", params={"access_token": access_token})
-        g_user = user_resp.json()
-    unique_login = f"google_{g_user.get('sub')}"
-    clean_data = {"id": g_user.get("sub"), "name": g_user.get("name") or unique_login, "avatar": g_user.get("picture"), "email": g_user.get("email"), "phone": ""}
-    await finalize_login(clean_data, "google", db)
-    return update_session_cookie(RedirectResponse("/"), clean_data, "google", db)
-
-@app.get("/login/yandex-direct")
-def login_yandex_direct():
-    params = {"client_id": YANDEX_CLIENT_ID, "redirect_uri": YANDEX_REDIRECT_URI, "response_type": "code"}
-    return RedirectResponse(f"https://oauth.yandex.ru/authorize?{urllib.parse.urlencode(params)}")
-
-@app.get("/callback/yandex-direct")
-async def callback_yandex_direct(code: str, db: Session = Depends(get_db)):
-    async with httpx.AsyncClient() as client:
-        token_resp = await client.post("https://oauth.yandex.ru/token", data={"grant_type": "authorization_code", "code": code, "client_id": YANDEX_CLIENT_ID, "client_secret": YANDEX_CLIENT_SECRET})
-        access_token = token_resp.json().get("access_token")
-        user_resp = await client.get("https://login.yandex.ru/info?format=json", headers={"Authorization": f"OAuth {access_token}"})
-        y_user = user_resp.json()
-    avatar_id = y_user.get("default_avatar_id")
-    clean_data = {"id": y_user.get("id"), "name": y_user.get("display_name") or y_user.get("real_name"), "avatar": f"https://avatars.yandex.net/get-yapic/{avatar_id}/islands-200" if avatar_id else "", "email": y_user.get("default_email"), "phone": ""}
-    await finalize_login(clean_data, "yandex", db)
-    return update_session_cookie(RedirectResponse("/"), clean_data, "yandex", db)
