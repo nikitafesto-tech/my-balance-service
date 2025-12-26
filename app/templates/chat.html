@@ -74,50 +74,37 @@
                     </div>
                     
                     <div class="flex flex-col max-w-[85%]" :class="msg.role === 'user' ? 'items-end' : 'items-start'">
-                        <div class="px-5 py-3.5 rounded-2xl text-[15px] leading-relaxed shadow-sm relative" 
+                        <div class="px-5 py-3.5 rounded-2xl text-[15px] leading-relaxed shadow-sm relative markdown-content" 
                              :class="msg.role === 'user' ? 'bg-white/10 text-white rounded-tr-sm' : 'bg-[#222] text-gray-100 pl-5'">
                             
-                            <div class="markdown-content" x-html="parseMarkdown(msg.content)"></div>
+                            <div x-html="parseMarkdown(msg.content)"></div>
                             
-                            <template x-if="msg.image_url && msg.image_url.endsWith('.mp4')">
-                                <div class="mt-3 rounded-lg overflow-hidden border border-white/10 w-full max-w-md">
-                                    <video controls playsinline class="w-full">
-                                        <source :src="msg.image_url" type="video/mp4">
-                                    </video>
-                                </div>
-                            </template>
-                            
-                            <template x-if="msg.image_url && !msg.image_url.endsWith('.mp4')">
-                                <img :src="msg.image_url" class="mt-3 rounded-lg max-w-full border border-white/10 object-cover cursor-pointer" onclick="window.open(this.src)">
-                            </template>
+                            <span x-show="msg.isStreaming" class="inline-block w-2 h-4 bg-green ml-1 animate-pulse align-middle"></span>
 
                             <template x-if="msg.attachment_url">
-                                <div class="mt-2">
-                                    <img :src="msg.attachment_url" class="w-32 h-24 object-cover rounded-lg border border-white/10 opacity-70 hover:opacity-100 transition cursor-pointer" onclick="window.open(this.src)">
+                                <img :src="msg.attachment_url" class="mt-3 rounded-lg max-w-full max-h-64 border border-white/10 object-cover cursor-pointer" onclick="window.open(this.src)">
+                            </template>
+                            <template x-if="msg.image_url && !msg.image_url.endsWith('.mp4')">
+                                <img :src="msg.image_url" class="mt-3 rounded-lg max-w-full max-h-64 border border-white/10 object-cover cursor-pointer" onclick="window.open(this.src)">
+                            </template>
+                            <template x-if="msg.image_url && msg.image_url.endsWith('.mp4')">
+                                <div class="mt-3 rounded-lg overflow-hidden border border-white/10 w-full max-w-md">
+                                    <video controls playsinline class="w-full"><source :src="msg.image_url" type="video/mp4"></video>
                                 </div>
                             </template>
                         </div>
 
-                        <div class="flex items-center gap-2 mt-1 px-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                            <button @click="copyToClipboard(msg.content)" class="text-gray-500 hover:text-white text-xs flex items-center gap-1" title="Копировать">
-                                <i class="ph ph-copy"></i>
+                        <div class="flex items-center gap-4 mt-2 px-1 text-xs text-gray-500 opacity-80 hover:opacity-100 transition-opacity">
+                            <button @click="copyToClipboard(msg.content)" class="hover:text-white flex items-center gap-1 transition-colors">
+                                <i class="ph ph-copy"></i> Копировать
                             </button>
-                            <button @click="replyToMessage(msg)" class="text-gray-500 hover:text-white text-xs flex items-center gap-1" title="Ответить">
-                                <i class="ph ph-arrow-u-up-left"></i>
+                            <button @click="replyToMessage(msg)" class="hover:text-white flex items-center gap-1 transition-colors">
+                                <i class="ph ph-arrow-u-up-left"></i> Цитировать
                             </button>
                         </div>
                     </div>
                 </div>
             </template>
-            
-            <div x-show="isTyping" class="flex gap-4 max-w-4xl mx-auto">
-                 <div class="w-8 h-8 rounded-full bg-green flex-shrink-0 flex items-center justify-center"><i class="ph ph-robot text-white text-lg"></i></div>
-                <div class="flex items-center gap-1 h-10 px-4">
-                    <div class="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
-                    <div class="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-75"></div>
-                    <div class="w-2 h-2 bg-gray-500 rounded-full animate-bounce delay-150"></div>
-                </div>
-            </div>
             <div class="h-32"></div>
         </div>
 
@@ -126,7 +113,7 @@
                 
                 <div x-show="replyContext" x-transition class="absolute bottom-full left-0 right-0 mb-2 mx-4 bg-[#1a1a1a] border-l-4 border-green border-t border-r border-white/10 p-3 rounded-t-lg flex items-center justify-between shadow-xl z-20">
                     <div class="flex flex-col overflow-hidden">
-                        <span class="text-xs text-green font-bold mb-0.5">Ответ на сообщение</span>
+                        <span class="text-[10px] text-green font-bold uppercase tracking-wider mb-0.5">Ответ на сообщение</span>
                         <span class="text-sm text-gray-300 truncate" x-text="replyContext?.preview"></span>
                     </div>
                     <button @click="replyContext = null" class="text-gray-500 hover:text-white p-1"><i class="ph ph-x"></i></button>
@@ -234,9 +221,10 @@
 
                                         <div class="cat-title">Медиа (Видео/Фото)</div>
                                         <button @click="setModel('veo-3.1', 'Veo 3.1 (Video)'); open=false" class="model-btn"><i class="ph ph-film-strip text-red-500"></i> Veo 3.1</button>
-                                        <button @click="setModel('sora-2', 'Sora 2 (Video)'); open=false" class="model-btn"><i class="ph ph-video text-pink-500"></i> Sora 2</button>
+                                        <button @click="setModel('midjourney', 'Midjourney v6'); open=false" class="model-btn"><i class="ph ph-image text-purple-400"></i> Midjourney v6</button>
                                         <button @click="setModel('recraft-v3', 'Recraft V3 (Image)'); open=false" class="model-btn"><i class="ph ph-paint-brush text-purple-400"></i> Recraft V3</button>
                                         <button @click="setModel('flux-1.1-ultra', 'Flux Ultra (Image)'); open=false" class="model-btn"><i class="ph ph-image text-green-400"></i> Flux 1.1 Ultra</button>
+                                        <button @click="setModel('luma-ray-2', 'Luma Ray 2 (Video)'); open=false" class="model-btn"><i class="ph ph-film-strip text-yellow-500"></i> Luma Ray 2</button>
                                     </div>
                                 </div>
                             </div>
@@ -276,44 +264,76 @@
 </div>
 
 <style>
+    /* Категории в меню */
     .cat-title { padding: 6px 12px; font-size: 11px; color: #888; font-weight: 700; text-transform: uppercase; margin-top: 8px; background: rgba(255,255,255,0.05); border-radius: 6px; letter-spacing: 0.05em; }
+    /* Кнопки моделей */
     .model-btn { width: 100%; text-align: left; padding: 10px 12px; border-radius: 8px; font-size: 13px; display: flex; align-items: center; gap: 10px; transition: all 0.2s; color: #e5e7eb; }
     .model-btn:hover { background: rgba(255,255,255,0.1); color: white; transform: translateX(2px); }
     .model-btn i { font-size: 16px; width: 20px; display: flex; justify-content: center; }
+    /* Скроллбар */
     .custom-scrollbar::-webkit-scrollbar { width: 4px; }
     .custom-scrollbar::-webkit-scrollbar-track { background: #1a1a1a; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #444; border-radius: 2px; }
 
-    /* Markdown Styles */
-    .markdown-content p { margin-bottom: 0.8em; }
-    .markdown-content p:last-child { margin-bottom: 0; }
-    .markdown-content h1, .markdown-content h2, .markdown-content h3 { font-weight: 700; color: #fff; margin-top: 1em; margin-bottom: 0.5em; }
-    .markdown-content h1 { font-size: 1.5em; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px; }
-    .markdown-content h2 { font-size: 1.3em; }
-    .markdown-content ul { list-style-type: disc; padding-left: 20px; margin-bottom: 1em; }
-    .markdown-content ol { list-style-type: decimal; padding-left: 20px; margin-bottom: 1em; }
-    .markdown-content code { background: rgba(255,255,255,0.15); padding: 2px 5px; border-radius: 4px; font-family: 'Menlo', 'Monaco', monospace; font-size: 0.9em; color: #e06c75; }
-    .markdown-content pre { background: #1e1e1e !important; padding: 12px; border-radius: 8px; overflow-x: auto; margin: 10px 0; border: 1px solid rgba(255,255,255,0.1); }
-    .markdown-content pre code { background: transparent; padding: 0; color: inherit; font-size: 0.85em; }
-    .markdown-content blockquote { border-left: 3px solid #27ae60; padding-left: 10px; color: #9ca3af; margin: 10px 0; font-style: italic; }
+    /* === РАЗМЫШЛЕНИЯ (Think) === */
+    details.reasoning {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 8px;
+        margin-bottom: 12px;
+        overflow: hidden;
+    }
+    details.reasoning summary {
+        padding: 10px 14px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 500;
+        color: #888;
+        list-style: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: color 0.2s;
+    }
+    details.reasoning summary:hover { color: #ccc; background: rgba(255,255,255,0.02); }
+    details.reasoning summary::before { content: "⚡"; font-size: 14px; opacity: 0.7; }
+    details.reasoning[open] summary { border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .reasoning-content {
+        padding: 14px; font-size: 13px; color: #a0a0a0; font-family: 'Menlo', monospace; line-height: 1.6; white-space: pre-wrap; background: rgba(0,0,0,0.2);
+    }
+
+    /* === БЛОКИ КОДА === */
+    .code-wrapper {
+        margin: 12px 0;
+        border: 1px solid #333;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #161616;
+    }
+    .code-header {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 8px 12px; background: #252525; border-bottom: 1px solid #333;
+        font-family: sans-serif; font-size: 12px; color: #999;
+    }
+    .copy-code-btn { cursor: pointer; display: flex; align-items: center; gap: 4px; color: #777; transition: color 0.2s; }
+    .copy-code-btn:hover { color: #fff; }
+    
+    .markdown-content pre { margin: 0; border: none; background: transparent !important; border-radius: 0; }
+    .markdown-content pre code { display: block; padding: 16px; font-family: 'Consolas', 'Monaco', monospace; font-size: 13px; line-height: 1.5; overflow-x: auto; }
 </style>
 
 <script>
-    // === CAPABILITIES MAP ===
-    // Определяем, что умеет каждая модель
-    // default - для всех, у кого нет явной записи
+    // Настройки возможностей моделей (добавьте сюда, если нужно запретить vision/web для конкретной модели)
     const MODEL_CAPABILITIES = {
         'default': { vision: true, web: true },
-        // Медиа модели (только текст промпт, нет веб поиска, нет загрузки фото на вход для анализа)
         'recraft-v3': { vision: false, web: false },
         'flux-1.1-ultra': { vision: false, web: false },
         'veo-3.1': { vision: false, web: false },
-        'sora-2': { vision: false, web: false },
-        // Текстовые (o1 не умеет vision и web пока)
+        'midjourney': { vision: false, web: false },
+        'luma-ray-2': { vision: false, web: false },
         'o1-preview': { vision: false, web: false },
         'o1-mini': { vision: false, web: false },
-        // DeepSeek часто без веба
-        'deepseek-r1': { vision: false, web: false }, 
+        'deepseek-r1': { vision: false, web: false },
     };
 
     function appLogic() {
@@ -323,24 +343,12 @@
             userInput: '', attachedFileUrl: null,
             activeChatId: null, chatHistory: [], messages: [],
             temperature: 0.7, webSearch: false,
-            
-            // Новое: контекст ответа
             replyContext: null,
 
-            // Геттеры для UI (вычисляемые свойства)
-            get canVision() {
-                const caps = MODEL_CAPABILITIES[this.currentModel] || MODEL_CAPABILITIES['default'];
-                return caps.vision;
-            },
-            get canSearch() {
-                const caps = MODEL_CAPABILITIES[this.currentModel] || MODEL_CAPABILITIES['default'];
-                return caps.web;
-            },
+            get canVision() { return (MODEL_CAPABILITIES[this.currentModel] || MODEL_CAPABILITIES['default']).vision; },
+            get canSearch() { return (MODEL_CAPABILITIES[this.currentModel] || MODEL_CAPABILITIES['default']).web; },
             
-            async init() { 
-                await this.loadHistory(); 
-            },
-
+            async init() { await this.loadHistory(); },
             async loadHistory() { try { const res = await fetch('/api/chats'); if (res.ok) this.chatHistory = await res.json(); } catch (e) {} },
             async loadChat(id) { this.activeChatId = id; this.messages = []; this.sidebarOpen = false; try { const res = await fetch(`/api/chats/${id}`); if (res.ok) { this.messages = await res.json(); this.scrollToBottom(); } } catch (e) {} },
             
@@ -352,76 +360,99 @@
             
             startNewChat() { this.activeChatId = null; this.messages = []; this.userInput = ''; this.attachedFileUrl = null; this.replyContext = null; this.$nextTick(() => this.$refs.chatInput.focus()); },
             
-            // === ФУНКЦИИ ЦИТИРОВАНИЯ И КОПИРОВАНИЯ ===
-            copyToClipboard(text) {
-                navigator.clipboard.writeText(text).then(() => {
-                    // Можно добавить всплывашку "Скопировано", пока просто в буфер
-                });
-            },
+            copyToClipboard(text) { navigator.clipboard.writeText(text); },
             
             replyToMessage(msg) {
-                // Берем первые 60 символов для превью
                 const preview = msg.content.substring(0, 60) + (msg.content.length > 60 ? '...' : '');
-                this.replyContext = {
-                    id: msg.id,
-                    role: msg.role,
-                    content: msg.content,
-                    preview: preview
-                };
-                this.$nextTick(() => this.$refs.chatInput.focus());
+                this.replyContext = { id: msg.id, content: msg.content, preview: preview };
+                this.$refs.chatInput.focus();
             },
 
             async sendMessage() {
                 if (!this.userInput.trim() && !this.attachedFileUrl) return;
                 
                 let textToSend = this.userInput;
-                
-                // Если есть цитата, форматируем её как Markdown цитату
                 if (this.replyContext) {
-                    // Добавляем символ цитирования > перед каждой строкой цитируемого текста
                     const quotePrefix = this.replyContext.content.split('\n').map(line => `> ${line}`).join('\n');
                     textToSend = `${quotePrefix}\n\n${this.userInput}`;
                 }
 
                 const fileUrl = this.attachedFileUrl;
-                
-                // Сброс
-                this.userInput = ''; 
-                this.attachedFileUrl = null; 
-                this.replyContext = null; // Сбрасываем цитату
+                this.userInput = ''; this.attachedFileUrl = null; this.replyContext = null; 
                 this.$refs.chatInput.style.height = 'auto';
 
-                // Визуально
-                this.messages.push({ role: 'user', content: textToSend, attachment_url: fileUrl, id: Date.now() });
-                this.scrollToBottom(); this.isTyping = true;
+                // Добавляем сообщение юзера
+                const userMsgId = Date.now();
+                this.messages.push({ role: 'user', content: textToSend, attachment_url: fileUrl, id: userMsgId });
+                
+                // Добавляем плейсхолдер для бота
+                const botMsgId = userMsgId + 1;
+                this.messages.push({ role: 'assistant', content: '', id: botMsgId, isStreaming: true });
+                
+                this.scrollToBottom(); 
+                this.isTyping = true;
 
                 try {
                     const payload = { 
-                        message: textToSend, // Отправляем уже склеенный текст
-                        model: this.currentModel, 
-                        temperature: parseFloat(this.temperature), 
-                        // Если модель не поддерживает поиск, шлем false
-                        web_search: this.webSearch && this.canSearch, 
-                        attachment_url: fileUrl 
+                        message: textToSend, model: this.currentModel, temperature: parseFloat(this.temperature), 
+                        web_search: this.webSearch && this.canSearch, attachment_url: fileUrl 
                     };
                     
                     let url = !this.activeChatId ? '/api/chats/new' : `/api/chats/${this.activeChatId}/message`;
-                    const res = await fetch(url, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
                     
-                    if (!res.ok) throw new Error("Error");
-                    const data = await res.json();
+                    // ЗАПРОС
+                    const response = await fetch(url, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
                     
-                    if (!this.activeChatId && data.chat_id) { this.activeChatId = data.chat_id; await this.loadHistory(); }
-                    
-                    const lastMsg = data.messages[data.messages.length - 1];
-                    this.messages.push({ 
-                        role: lastMsg.role, 
-                        content: lastMsg.content, 
-                        attachment_url: lastMsg.image_url || lastMsg.attachment_url, 
-                        id: Date.now()+1 
-                    });
+                    // ЕСЛИ ЭТО ОБЫЧНЫЙ JSON (Медиа)
+                    const contentType = response.headers.get("content-type");
+                    if (contentType && contentType.includes("application/json")) {
+                        const data = await response.json();
+                        // Обновляем данные (ID чата, полный ответ)
+                        if (!this.activeChatId && data.chat_id) { this.activeChatId = data.chat_id; await this.loadHistory(); }
+                        
+                        // Заменяем плейсхолдер на реальный ответ
+                        const msgIndex = this.messages.findIndex(m => m.id === botMsgId);
+                        if(msgIndex !== -1) {
+                            const lastMsg = data.messages[data.messages.length - 1];
+                            this.messages[msgIndex] = { ...this.messages[msgIndex], content: lastMsg.content, image_url: lastMsg.image_url, isStreaming: false };
+                        }
+                    } 
+                    // ЕСЛИ ЭТО ПОТОК (Стриминг)
+                    else {
+                        const reader = response.body.getReader();
+                        const decoder = new TextDecoder();
+                        let botText = "";
+
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+                            const chunk = decoder.decode(value);
+                            const lines = chunk.split('\n');
+                            for (const line of lines) {
+                                if (!line.trim()) continue;
+                                try {
+                                    const json = JSON.parse(line);
+                                    if (json.type === 'meta' && !this.activeChatId) {
+                                        this.activeChatId = json.chat_id;
+                                        this.loadHistory();
+                                    }
+                                    if (json.type === 'content') {
+                                        botText += json.text;
+                                        const msg = this.messages.find(m => m.id === botMsgId);
+                                        if(msg) msg.content = botText;
+                                        this.scrollToBottom();
+                                    }
+                                } catch (e) {}
+                            }
+                        }
+                        // Стрим завершен
+                        const msg = this.messages.find(m => m.id === botMsgId);
+                        if(msg) msg.isStreaming = false;
+                    }
+
                 } catch (e) { 
-                    this.messages.push({ role: 'assistant', content: '⚠️ Ошибка при генерации.', id: Date.now() }); 
+                    const msg = this.messages.find(m => m.id === botMsgId);
+                    if(msg) { msg.content = '⚠️ Ошибка при генерации.'; msg.isStreaming = false; }
                 } finally { 
                     this.isTyping = false; this.scrollToBottom(); 
                 }
@@ -433,8 +464,30 @@
                 try { const res = await fetch('/api/upload', { method: 'POST', body: formData }); const data = await res.json(); if(data.url) { this.attachedFileUrl = data.url; this.$refs.fileInput.value = ''; } } catch(e) { alert("Ошибка загрузки"); }
             },
 
-            parseMarkdown(text) { 
-                return marked.parse(text || ""); 
+            // ПАРСЕР (Think + Code)
+            parseMarkdown(text) {
+                if (!text) return "";
+                // 1. <think>
+                text = text.replace(/<think>([\s\S]*?)<\/think>/g, '<details class="reasoning"><summary>Размышления</summary><div class="reasoning-content">$1</div></details>');
+                // 2. Markdown
+                let html = marked.parse(text);
+                // 3. Code Blocks
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                doc.querySelectorAll('pre code').forEach((block) => {
+                    let lang = "Code";
+                    block.classList.forEach(cls => { if (cls.startsWith('language-')) lang = cls.replace('language-', ''); });
+                    
+                    const pre = block.parentElement;
+                    const wrapper = document.createElement('div'); wrapper.className = 'code-wrapper';
+                    const header = document.createElement('div'); header.className = 'code-header';
+                    header.innerHTML = `<span>${lang}</span> <span class="copy-code-btn" onclick="navigator.clipboard.writeText(this.parentElement.nextElementSibling.innerText)">📋 Копировать</span>`;
+                    
+                    pre.parentNode.insertBefore(wrapper, pre);
+                    wrapper.appendChild(header); wrapper.appendChild(pre);
+                    hljs.highlightElement(block);
+                });
+                return doc.body.innerHTML;
             },
             
             scrollToBottom() { this.$nextTick(() => { const el = document.getElementById('chat-container'); el.scrollTop = el.scrollHeight; }); }

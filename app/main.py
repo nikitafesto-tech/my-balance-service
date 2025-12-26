@@ -24,10 +24,10 @@ from sqlalchemy import desc
 # ЮKassa
 from yookassa import Configuration, Payment as YooPayment
 
-# === ИМПОРТЫ ДЛЯ ИИ ===
-from app.services.ai_generation import generate_ai_response
+# === НОВЫЙ ИМПОРТ ===
+from app.routers import chats
 
-# === ИМПОРТЫ ИЗ ВАШИХ МОДУЛЕЙ ===
+# === ИМПОРТЫ БАЗЫ ===
 from app.database import engine, get_db, Base
 from app.models import UserWallet, UserSession, Payment, EmailCode, Chat, Message
 from app.services.s3 import upload_file_to_s3
@@ -55,7 +55,10 @@ async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Global Error: {exc}", exc_info=True)
     return JSONResponse(status_code=500, content={"message": "Internal Server Error", "detail": str(exc)})
 
-# --- CONFIG ---
+# === ПОДКЛЮЧАЕМ РОУТЕР ЧАТОВ (Вся логика теперь там) ===
+app.include_router(chats.router)
+
+# --- CONFIG (AUTH, PAYMENTS) ---
 SITE_URL = os.getenv("SITE_URL", "http://localhost:8081")
 AUTH_URL = os.getenv("AUTH_URL", "http://localhost:8000")
 
@@ -119,18 +122,28 @@ def check_telegram_authorization(data: dict, bot_token: str) -> bool:
     return hash_calc == check_hash
 
 def send_email_via_smtp(to_email, code):
-    if not SMTP_HOST: return False
+    if not SMTP_HOST or not SMTP_USER or not SMTP_PASSWORD:
+        logger.error("SMTP credentials not configured in .env")
+        return False
+        
     try:
         msg = MIMEMultipart()
         msg['From'] = SMTP_USER
         msg['To'] = to_email
         msg['Subject'] = f"Код входа: {code}"
-        body = f"<h2>Ваш код: {code}</h2>"
+        body = f"<h2>Ваш код для входа: {code}</h2><p>Если вы не запрашивали код, проигнорируйте это письмо.</p>"
         msg.attach(MIMEText(body, 'html'))
-        server = smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT)
+        
+        if SMTP_PORT == 465:
+            server = smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT)
+        else:
+            server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
+            server.starttls()
+            
         server.login(SMTP_USER, SMTP_PASSWORD)
         server.send_message(msg)
         server.quit()
+        logger.info(f"Email sent to {to_email}")
         return True
     except Exception as e:
         logger.error(f"SMTP Error: {e}")
@@ -257,170 +270,9 @@ def logout(request: Request, db: Session = Depends(get_db)):
     resp.delete_cookie("vk_verifier")
     return resp
 
-# ==================== API ЧАТОВ (UPDATED) ====================
-
-@app.get("/api/chats")
-def get_chats(request: Request, db: Session = Depends(get_db)):
-    user = get_current_user(request, db)
-    if not user: raise HTTPException(401)
-    
-    chats = db.query(Chat).filter_by(user_casdoor_id=user.casdoor_id)\
-        .order_by(desc(Chat.updated_at)).all()
-    
-    return [{"id": c.id, "title": c.title, "date": c.updated_at.isoformat()} for c in chats]
-
-@app.get("/api/chats/{chat_id}")
-def get_chat_history(chat_id: int, request: Request, db: Session = Depends(get_db)):
-    user = get_current_user(request, db)
-    if not user: raise HTTPException(401)
-    
-    chat = db.query(Chat).filter_by(id=chat_id, user_casdoor_id=user.casdoor_id).first()
-    if not chat: raise HTTPException(404, "Chat not found")
-    
-    messages = []
-    for m in chat.messages:
-        messages.append({
-            "id": m.id,
-            "role": m.role,
-            "content": m.content,
-            "image_url": m.image_url,
-            "attachment_url": m.attachment_url
-        })
-    return messages
-
-@app.post("/api/chats/new")
-async def create_new_chat(request: Request, data: dict = Body(...), db: Session = Depends(get_db)):
-    user = get_current_user(request, db)
-    if not user: raise HTTPException(401)
-    
-    first_msg = data.get("message", "New Chat")
-    selected_model = data.get("model", "gpt-4o")
-    # Новые параметры от фронтенда
-    temperature = data.get("temperature", 0.7)
-    web_search = data.get("web_search", False)
-    attachment_url = data.get("attachment_url") # <--- ФОТО
-    
-    title = first_msg[:30] + "..." if len(first_msg) > 30 else first_msg
-    
-    new_chat = Chat(user_casdoor_id=user.casdoor_id, title=title, model=selected_model)
-    db.add(new_chat)
-    db.commit()
-    db.refresh(new_chat)
-    
-    msg = Message(chat_id=new_chat.id, role="user", content=first_msg)
-    if attachment_url:
-        msg.attachment_url = attachment_url
-    db.add(msg)
-    db.commit()
-    
-    cost = 0.0
-    try:
-        # Вызываем ИИ, передаем все параметры (включая attachment_url)
-        ai_reply, cost = await generate_ai_response(
-            selected_model, 
-            [{"role": "user", "content": first_msg}], 
-            user.balance,
-            temperature=temperature,
-            web_search=web_search,
-            attachment_url=attachment_url
-        )
-    except HTTPException as e:
-        ai_reply = f"⚠️ {e.detail}"
-    except Exception as e:
-        ai_reply = f"Ошибка: {str(e)}"
-
-    # Списание денег
-    if cost > 0:
-        user.balance -= cost
-        if user.balance < 0: user.balance = 0
-        db.add(user)
-        db.commit()
-        await update_casdoor_balance(user.casdoor_id, user.balance)
-
-    bot_msg = Message(chat_id=new_chat.id, role="assistant", content=ai_reply)
-    # Если это сгенерированная картинка/видео, ссылка придет в тексте Markdown
-    if ai_reply.startswith("![") and "[Generated]" in ai_reply:
-        try:
-            bot_msg.image_url = ai_reply.split("(")[1].split(")")[0]
-        except: pass
-
-    db.add(bot_msg)
-    db.commit()
-    
-    return {"chat_id": new_chat.id, "title": title, "messages": [
-        {"role": "user", "content": first_msg, "attachment_url": attachment_url},
-        {"role": "assistant", "content": ai_reply, "image_url": bot_msg.image_url}
-    ]}
-
-@app.post("/api/chats/{chat_id}/message")
-async def chat_reply(chat_id: int, request: Request, data: dict = Body(...), db: Session = Depends(get_db)):
-    user = get_current_user(request, db)
-    if not user: raise HTTPException(401)
-
-    chat = db.query(Chat).filter_by(id=chat_id, user_casdoor_id=user.casdoor_id).first()
-    if not chat: raise HTTPException(404, "Chat not found")
-
-    user_text = data.get("message")
-    temperature = data.get("temperature", 0.7)
-    web_search = data.get("web_search", False)
-    attachment_url = data.get("attachment_url")
-    
-    user_msg = Message(chat_id=chat.id, role="user", content=user_text)
-    if attachment_url:
-        user_msg.attachment_url = attachment_url
-    db.add(user_msg)
-    chat.updated_at = datetime.utcnow()
-    db.commit()
-
-    last_messages = db.query(Message).filter_by(chat_id=chat.id).order_by(Message.id.desc()).limit(10).all()
-    last_messages.reverse()
-    
-    messages_payload = [{"role": "system", "content": "You are a helpful assistant."}]
-    for m in last_messages:
-        messages_payload.append({"role": m.role, "content": m.content or ""})
-
-    cost = 0.0
-    try:
-        ai_reply, cost = await generate_ai_response(
-            chat.model, 
-            messages_payload, 
-            user.balance, 
-            temperature=temperature,
-            web_search=web_search,
-            attachment_url=attachment_url
-        )
-    except HTTPException as e:
-        ai_reply = f"⚠️ {e.detail}"
-    except Exception as e:
-        ai_reply = f"Ошибка: {str(e)}"
-    
-    if cost > 0:
-        user.balance -= cost
-        if user.balance < 0: user.balance = 0
-        db.add(user)
-        db.commit()
-        await update_casdoor_balance(user.casdoor_id, user.balance)
-
-    bot_msg = Message(chat_id=chat.id, role="assistant", content=ai_reply)
-    if ai_reply.startswith("![") and "[Generated]" in ai_reply:
-        try:
-            bot_msg.image_url = ai_reply.split("(")[1].split(")")[0]
-        except: pass
-        
-    db.add(bot_msg)
-    db.commit()
-
-    return {
-        "chat_id": chat.id,
-        "messages": [
-            {"role": "user", "content": user_text, "attachment_url": attachment_url},
-            {"role": "assistant", "content": ai_reply, "image_url": bot_msg.image_url}
-        ]
-    }
-
 @app.post("/api/upload")
 async def upload_file(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db)):
-    """Загрузка в S3"""
+    """Загрузка в S3 (остается здесь или можно вынести)"""
     user = get_current_user(request, db)
     if not user: raise HTTPException(401)
     
@@ -431,7 +283,7 @@ async def upload_file(request: Request, file: UploadFile = File(...), db: Sessio
     if not url: raise HTTPException(500, "S3 Upload Failed")
     return {"url": url, "filename": file.filename}
 
-# ==================== ОПЛАТА И AUTH (БЕЗ ИЗМЕНЕНИЙ) ====================
+# ==================== AUTH & PAYMENT ENDPOINTS (БЕЗ ИЗМЕНЕНИЙ) ====================
 
 @app.post("/auth/email/request-code")
 async def request_email_code(data: dict = Body(...), db: Session = Depends(get_db)):
@@ -442,7 +294,7 @@ async def request_email_code(data: dict = Body(...), db: Session = Depends(get_d
     db.add(EmailCode(email=email, code=code))
     db.commit()
     if send_email_via_smtp(email, code): return {"status": "ok"}
-    return JSONResponse({"error": "SMTP Error"}, 500)
+    return JSONResponse({"error": "SMTP Error. Check logs."}, 500)
 
 @app.post("/auth/email/verify-code")
 async def verify_email_code(data: dict = Body(...), db: Session = Depends(get_db)):

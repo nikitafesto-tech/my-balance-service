@@ -2,37 +2,28 @@ import os
 import re
 import fal_client
 import httpx
+import base64
 from openai import AsyncOpenAI
 from fastapi import HTTPException
 from app.services.s3 import upload_url_to_s3
 
-# === 1. НАСТРОЙКИ И ПРОКСИ ===
+# === 1. НАСТРОЙКИ ===
 OPENROUTER_KEY = os.getenv("OPENROUTER_API_KEY")
 FAL_KEY = os.getenv("FAL_KEY")
 PROXY_URL = os.getenv("AI_PROXY_URL")
 
-# --- ВАЖНО: Настройка прокси через окружение ---
-# Это работает для httpx, OpenAI и Fal.ai автоматически
+# Прокси через переменные окружения
 if PROXY_URL:
     os.environ["HTTP_PROXY"] = PROXY_URL
     os.environ["HTTPS_PROXY"] = PROXY_URL
     print(f"🌍 PROXY ACTIVATED via ENV: {PROXY_URL}")
-
-# Логирование для отладки
-print("--- AI SERVICE STATUS ---")
-print(f"DEBUG: Key exists: {bool(OPENROUTER_KEY)}")
-print(f"DEBUG: Proxy set: {bool(PROXY_URL)}")
-print("-------------------------")
 
 text_client = None
 init_error = None
 
 if OPENROUTER_KEY:
     try:
-        # ИСПРАВЛЕНИЕ: Создаем клиент БЕЗ аргумента proxies.
-        # Он сам возьмет настройки из os.environ["HTTPS_PROXY"]
-        http_client = httpx.AsyncClient(verify=False) 
-        
+        http_client = httpx.AsyncClient(verify=False)
         text_client = AsyncOpenAI(
             api_key=OPENROUTER_KEY,
             base_url="https://openrouter.ai/api/v1",
@@ -41,11 +32,11 @@ if OPENROUTER_KEY:
         print("✅ OpenRouter Client Initialized")
     except Exception as e:
         init_error = str(e)
-        print(f"❌ CRITICAL ERROR initializing OpenAI: {e}")
+        print(f"❌ Error initializing OpenAI: {e}")
 else:
-    init_error = "OpenRouter API Key not found in env"
+    init_error = "OpenRouter API Key not found"
 
-# === 2. ПОЛНЫЙ КАТАЛОГ МОДЕЛЕЙ (ДЕКАБРЬ 2025) ===
+# === 2. ТВОЙ ПОЛНЫЙ СПИСОК МОДЕЛЕЙ ===
 MODEL_CONFIG = {
     # --- OPENAI (CHATGPT) ---
     "gpt-5.2":            {"type": "text", "id": "openai/gpt-5.2", "price_in": 2.5, "price_out": 10},
@@ -132,127 +123,106 @@ MODEL_CONFIG = {
     "veo-3.1":            {"type": "video", "id": "fal-ai/veo-3.1", "price_fixed": 249},
 }
 
-def extract_image_url(text: str):
-    if not text: return None
-    match = re.search(r'(?:\[Файл:|!\[.*?\]\()((https?://\S+?)(?:\.png|\.jpg|\.jpeg|\.webp))(?:\)|\]|\s)', text, re.IGNORECASE)
-    if match: return match.group(1)
+async def encode_image(url):
+    """Скачивает картинку с S3 и кодирует в base64 (без прокси)"""
+    try:
+        async with httpx.AsyncClient(verify=False, trust_env=False) as client:
+            resp = await client.get(url, timeout=30.0)
+            if resp.status_code == 200:
+                return base64.b64encode(resp.content).decode('utf-8')
+    except Exception as e:
+        print(f"Error encoding image: {e}")
     return None
 
-async def generate_ai_response(
-    model_alias: str, 
-    messages: list, 
-    user_balance: float, 
-    temperature: float = 0.7, 
-    web_search: bool = False,
-    attachment_url: str = None
-) -> tuple[str, float]:
-    
-    # 1. Поиск модели
+# === НОВАЯ ФУНКЦИЯ: СТРИМИНГ ТЕКСТА ===
+async def generate_ai_response_stream(model_alias, messages, user_balance, temp, web, attach_url):
+    """Генератор: возвращает (кусок_текста, накопленная_цена)"""
     model_info = MODEL_CONFIG.get(model_alias)
-    if not model_info:
-        model_info = MODEL_CONFIG["gpt-4o"]
+    if not model_info: model_info = MODEL_CONFIG["gpt-4o"]
 
-    model_id = model_info["id"]
-    model_type = model_info["type"]
-
-    # 2. Проверка баланса
     if user_balance < 0.1:
-        raise HTTPException(status_code=402, detail="Недостаточно средств. Пополните баланс.")
+        yield "Недостаточно средств.", 0
+        return
 
-    last_msg_obj = next((m for m in reversed(messages) if m["role"] == "user"), None)
-    prompt = last_msg_obj["content"] if last_msg_obj else "Hello"
+    # Подготовка сообщений
+    last_msg = messages[-1]
+    final_messages = messages[:-1]
+    
+    # Vision (Картинки) - конвертируем ссылку в base64
+    if attach_url and last_msg["role"] == "user":
+        b64 = await encode_image(attach_url)
+        if b64:
+            new_content = [
+                {"type": "text", "text": last_msg["content"]},
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}}
+            ]
+            final_messages.append({"role": "user", "content": new_content})
+        else:
+            final_messages.append(last_msg)
+    else:
+        final_messages.append(last_msg)
 
-    # === ТЕКСТОВЫЕ МОДЕЛИ (OpenRouter) ===
-    if model_type == "text":
-        if not text_client: 
-            error_msg = init_error if init_error else "OpenRouter Key is missing or Proxy failed"
-            raise Exception(f"System Error: {error_msg}")
+    # Веб-поиск
+    if web:
+        final_messages.insert(0, {"role": "system", "content": "You have access to the internet. Please search the web to provide accurate info."})
+
+    if not text_client:
+        yield f"System Error: {init_error}", 0
+        return
+
+    try:
+        # Запрос с stream=True
+        stream = await text_client.chat.completions.create(
+            model=model_info["id"],
+            messages=final_messages,
+            temperature=float(temp),
+            stream=True, # Включаем стриминг
+            extra_headers={
+                "HTTP-Referer": "https://neirosetim.ru",
+                "X-Title": "Neirosetim"
+            }
+        )
+
+        full_text = ""
+        # Грубый подсчет токенов
+        input_tokens = sum(len(str(m)) for m in final_messages) / 4 
         
-        final_messages = []
-        if web_search:
-            final_messages.append({
-                "role": "system", 
-                "content": "You have access to the internet. Please search the web to provide accurate info."
-            })
+        async for chunk in stream:
+            content = chunk.choices[0].delta.content
+            if content:
+                full_text += content
+                # Считаем цену
+                output_tokens = len(full_text) / 4
+                current_cost = (input_tokens/1000 * model_info.get("price_in", 1)) + \
+                               (output_tokens/1000 * model_info.get("price_out", 1))
+                
+                yield content, round(current_cost, 4)
 
-        for msg in messages:
-            role = msg.get("role", "user")
-            content = msg.get("content", "")
-            
-            # VISION LOGIC
-            if role == "user" and msg == last_msg_obj and attachment_url:
-                final_messages.append({
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": content},
-                        {"type": "image_url", "image_url": {"url": attachment_url}}
-                    ]
-                })
-            else:
-                final_messages.append({"role": role, "content": content})
+    except Exception as e:
+        yield f"\n[Error: {str(e)}]", 0
 
-        print(f"📝 REQUEST: {model_id} | Web: {web_search} | Attach: {bool(attachment_url)} | Proxy: {bool(PROXY_URL)}")
+# === ОБЫЧНАЯ ГЕНЕРАЦИЯ (ДЛЯ МЕДИА) ===
+async def generate_ai_response_media(model_alias, messages, user_balance, attach_url):
+    model_info = MODEL_CONFIG.get(model_alias)
+    cost = model_info.get("price_fixed", 10)
+    
+    if user_balance < cost: return "Недостаточно средств", 0
+    if not FAL_KEY: return "Error: FAL_KEY missing", 0
 
-        try:
-            response = await text_client.chat.completions.create(
-                model=model_id,
-                messages=final_messages,
-                temperature=float(temperature),
-                extra_headers={
-                    "HTTP-Referer": "https://neirosetim.ru",
-                    "X-Title": "Neirosetim"
-                }
-            )
-            
-            reply_text = response.choices[0].message.content
-            
-            # Расчет цены
-            input_chars = sum(len(str(m)) for m in final_messages)
-            output_chars = len(reply_text)
-            input_tokens = input_chars / 4
-            output_tokens = output_chars / 4
-            
-            price_in = model_info.get("price_in", 1)
-            price_out = model_info.get("price_out", 1)
-            
-            cost = (input_tokens / 1000 * price_in) + (output_tokens / 1000 * price_out)
-            return reply_text, round(cost, 4)
+    prompt = messages[-1]["content"]
+    args = {"prompt": prompt}
+    if model_info["type"] == "image": args["image_size"] = "landscape_16_9"
 
-        except Exception as e:
-            error_msg = str(e)
-            print(f"❌ Error: {error_msg}")
-            if "403" in error_msg:
-                return "⚠️ Ошибка доступа (403). Прокси не работает. Обратитесь в поддержку.", 0
-            if "does not exist" in error_msg or "not found" in error_msg:
-                return f"⚠️ Модель {model_id} недоступна.", 0
-            raise e
-
-    # === МЕДИА МОДЕЛИ (Fal.ai) ===
-    elif model_type in ["video", "image"]:
-        if not FAL_KEY: raise Exception("FAL_KEY missing")
+    try:
+        handler = await fal_client.submit_async(model_info["id"], arguments=args)
+        result = await handler.get()
         
-        cost = model_info.get("price_fixed", 10)
-        clean_prompt = prompt
+        media_url = None
+        if 'images' in result: media_url = result['images'][0]['url']
+        elif 'video' in result: media_url = result['video']['url']
+        else: media_url = str(result)
         
-        args = {"prompt": clean_prompt}
-        if model_type == "image": args["image_size"] = "landscape_16_9"
-        
-        try:
-            handler = await fal_client.submit_async(model_id, arguments=args)
-            result = await handler.get()
-            
-            media_url = None
-            if 'video' in result and 'url' in result['video']: media_url = result['video']['url']
-            elif 'images' in result: media_url = result['images'][0]['url']
-            elif 'file' in result: media_url = result['file']['url']
-            else: media_url = str(result)
-
-            saved_url = await upload_url_to_s3(media_url)
-            prefix = "!" if model_type in ["image", "video"] else ""
-            return f"{prefix}[Generated]({saved_url or media_url})", cost
-        except Exception as e:
-             if "403" in str(e):
-                 return "⚠️ Ошибка региона (403). Fal.ai заблокировал запрос.", 0
-             raise e
-
-    return "Тип модели не поддерживается", 0
+        saved = await upload_url_to_s3(media_url)
+        return f"![Generated]({saved or media_url})", cost
+    except Exception as e:
+        return f"Error: {e}", 0
