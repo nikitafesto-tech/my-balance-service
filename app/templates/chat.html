@@ -247,8 +247,9 @@
 
                             <div x-show="canVision">
                                 <input type="file" x-ref="fileInput" class="hidden" @change="uploadFile($event)">
-                                <button @click="$refs.fileInput.click()" class="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition" title="Прикрепить">
-                                    <i class="ph ph-paperclip text-xl"></i>
+                                <button @click="$refs.fileInput.click()" class="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition" title="Прикрепить" :disabled="isUploading">
+                                    <i class="ph ph-paperclip text-xl" x-show="!isUploading"></i>
+                                    <i class="ph ph-spinner text-xl animate-spin text-green" x-show="isUploading" x-cloak></i>
                                 </button>
                             </div>
                         </div>
@@ -264,57 +265,23 @@
 </div>
 
 <style>
-    /* Категории в меню */
     .cat-title { padding: 6px 12px; font-size: 11px; color: #888; font-weight: 700; text-transform: uppercase; margin-top: 8px; background: rgba(255,255,255,0.05); border-radius: 6px; letter-spacing: 0.05em; }
-    /* Кнопки моделей */
     .model-btn { width: 100%; text-align: left; padding: 10px 12px; border-radius: 8px; font-size: 13px; display: flex; align-items: center; gap: 10px; transition: all 0.2s; color: #e5e7eb; }
     .model-btn:hover { background: rgba(255,255,255,0.1); color: white; transform: translateX(2px); }
     .model-btn i { font-size: 16px; width: 20px; display: flex; justify-content: center; }
-    /* Скроллбар */
     .custom-scrollbar::-webkit-scrollbar { width: 4px; }
     .custom-scrollbar::-webkit-scrollbar-track { background: #1a1a1a; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #444; border-radius: 2px; }
 
-    /* === РАЗМЫШЛЕНИЯ (Think) === */
-    details.reasoning {
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 8px;
-        margin-bottom: 12px;
-        overflow: hidden;
-    }
-    details.reasoning summary {
-        padding: 10px 14px;
-        cursor: pointer;
-        font-size: 13px;
-        font-weight: 500;
-        color: #888;
-        list-style: none;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        transition: color 0.2s;
-    }
+    details.reasoning { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
+    details.reasoning summary { padding: 10px 14px; cursor: pointer; font-size: 13px; font-weight: 500; color: #888; list-style: none; display: flex; align-items: center; gap: 8px; transition: color 0.2s; }
     details.reasoning summary:hover { color: #ccc; background: rgba(255,255,255,0.02); }
     details.reasoning summary::before { content: "⚡"; font-size: 14px; opacity: 0.7; }
     details.reasoning[open] summary { border-bottom: 1px solid rgba(255,255,255,0.05); }
-    .reasoning-content {
-        padding: 14px; font-size: 13px; color: #a0a0a0; font-family: 'Menlo', monospace; line-height: 1.6; white-space: pre-wrap; background: rgba(0,0,0,0.2);
-    }
+    .reasoning-content { padding: 14px; font-size: 13px; color: #a0a0a0; font-family: 'Menlo', monospace; line-height: 1.6; white-space: pre-wrap; background: rgba(0,0,0,0.2); }
 
-    /* === БЛОКИ КОДА === */
-    .code-wrapper {
-        margin: 12px 0;
-        border: 1px solid #333;
-        border-radius: 8px;
-        overflow: hidden;
-        background: #161616;
-    }
-    .code-header {
-        display: flex; justify-content: space-between; align-items: center;
-        padding: 8px 12px; background: #252525; border-bottom: 1px solid #333;
-        font-family: sans-serif; font-size: 12px; color: #999;
-    }
+    .code-wrapper { margin: 12px 0; border: 1px solid #333; border-radius: 8px; overflow: hidden; background: #161616; }
+    .code-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #252525; border-bottom: 1px solid #333; font-family: sans-serif; font-size: 12px; color: #999; }
     .copy-code-btn { cursor: pointer; display: flex; align-items: center; gap: 4px; color: #777; transition: color 0.2s; }
     .copy-code-btn:hover { color: #fff; }
     
@@ -323,7 +290,6 @@
 </style>
 
 <script>
-    // Настройки возможностей моделей
     const MODEL_CAPABILITIES = {
         'default': { vision: true, web: true },
         'recraft-v3': { vision: false, web: false },
@@ -336,16 +302,27 @@
         'deepseek-r1': { vision: false, web: false },
     };
 
+    // Карта имен для красивого отображения в селекторе
+    const MODEL_NAMES = {
+        'gpt-4o': 'GPT-4o', 'gpt-4o-mini': 'GPT-4o Mini',
+        'gpt-5.2': 'GPT 5.2', 'gpt-5.1': 'GPT 5.1', 'gpt-5': 'GPT 5',
+        'claude-3.5-sonnet': 'Claude 3.5 Sonnet', 'claude-3-opus': 'Claude 3 Opus',
+        'gemini-3-pro': 'Gemini 3 Pro', 'gemini-2.5-flash': 'Gemini 2.5 Flash',
+        'deepseek-v3': 'DeepSeek V3', 'deepseek-r1': 'DeepSeek R1',
+        'recraft-v3': 'Recraft V3', 'flux-1.1-ultra': 'Flux Ultra', 'midjourney': 'Midjourney v6',
+        'veo-3.1': 'Veo 3.1', 'luma-ray-2': 'Luma Ray 2',
+        // Добавь остальные по необходимости, дефолт будет ID
+    };
+
     function appLogic() {
         return {
-            sidebarOpen: false, isTyping: false,
+            sidebarOpen: false, isTyping: false, isUploading: false,
             currentModel: 'gpt-4o', currentModelName: 'GPT-4o',
             userInput: '', attachedFileUrl: null,
             activeChatId: null, chatHistory: [], messages: [],
             temperature: 0.7, webSearch: false,
             replyContext: null,
             
-            // ИСПРАВЛЕНО: Теперь это безопасная строка, которая парсится в число
             balance: parseFloat("{{ balance | default(0) }}"),
 
             get canVision() { return (MODEL_CAPABILITIES[this.currentModel] || MODEL_CAPABILITIES['default']).vision; },
@@ -353,7 +330,29 @@
             
             async init() { await this.loadHistory(); },
             async loadHistory() { try { const res = await fetch('/api/chats'); if (res.ok) this.chatHistory = await res.json(); } catch (e) {} },
-            async loadChat(id) { this.activeChatId = id; this.messages = []; this.sidebarOpen = false; try { const res = await fetch(`/api/chats/${id}`); if (res.ok) { this.messages = await res.json(); this.scrollToBottom(); } } catch (e) {} },
+            
+            async loadChat(id) { 
+                this.activeChatId = id; 
+                this.messages = []; 
+                this.sidebarOpen = false; 
+                
+                try { 
+                    const res = await fetch(`/api/chats/${id}`); 
+                    if (res.ok) { 
+                        const data = await res.json();
+                        this.messages = data.messages; 
+                        
+                        // ОБНОВЛЯЕМ МОДЕЛЬ ПРИ ПЕРЕКЛЮЧЕНИИ ЧАТА
+                        if (data.model) {
+                            this.setModel(data.model, MODEL_NAMES[data.model] || data.model);
+                        }
+                        
+                        this.scrollToBottom(); 
+                    } 
+                } catch (e) {
+                    console.error("Failed to load chat", e);
+                } 
+            },
             
             setModel(id, name) { 
                 this.currentModel = id; 
@@ -403,7 +402,6 @@
                     
                     const response = await fetch(url, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
                     
-                    // Обработка ошибки 402 (Нет денег)
                     if (response.status === 402) {
                         const errData = await response.json();
                         const msg = this.messages.find(m => m.id === botMsgId);
@@ -415,8 +413,6 @@
                     if (contentType && contentType.includes("application/json")) {
                         const data = await response.json();
                         if (!this.activeChatId && data.chat_id) { this.activeChatId = data.chat_id; await this.loadHistory(); }
-                        
-                        // ОБНОВЛЯЕМ БАЛАНС (МЕДИА)
                         if (data.balance !== undefined) { this.balance = data.balance; }
 
                         const msgIndex = this.messages.findIndex(m => m.id === botMsgId);
@@ -449,7 +445,6 @@
                                         if(msg) msg.content = botText;
                                         this.scrollToBottom();
                                     }
-                                    // НОВОЕ: ОБНОВЛЯЕМ БАЛАНС (СТРИМ)
                                     else if (json.type === 'balance') {
                                         this.balance = json.balance;
                                     }
@@ -475,8 +470,22 @@
 
             async uploadFile(event) {
                 const file = event.target.files[0]; if (!file) return;
+                
+                this.isUploading = true; // <-- ВКЛЮЧАЕМ СПИННЕР
+                
                 const formData = new FormData(); formData.append('file', file);
-                try { const res = await fetch('/api/upload', { method: 'POST', body: formData }); const data = await res.json(); if(data.url) { this.attachedFileUrl = data.url; this.$refs.fileInput.value = ''; } } catch(e) { alert("Ошибка загрузки"); }
+                try { 
+                    const res = await fetch('/api/upload', { method: 'POST', body: formData }); 
+                    const data = await res.json(); 
+                    if(data.url) { 
+                        this.attachedFileUrl = data.url; 
+                        this.$refs.fileInput.value = ''; 
+                    } 
+                } catch(e) { 
+                    alert("Ошибка загрузки"); 
+                } finally {
+                    this.isUploading = false; // <-- ВЫКЛЮЧАЕМ СПИННЕР
+                }
             },
 
             parseMarkdown(text) {
