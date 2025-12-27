@@ -7,6 +7,8 @@ from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
+# ВАЖНО: Добавлен импорт для обработки HTTP ошибок (404)
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # ЮKassa
 from yookassa import Configuration, Payment as YooPayment
@@ -41,6 +43,19 @@ if os.path.exists(STATIC_DIR):
 
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
+# === ОБРАБОТЧИК ОШИБОК 404 (НОВОЕ) ===
+@app.exception_handler(StarletteHTTPException)
+async def custom_http_exception_handler(request: Request, exc: StarletteHTTPException):
+    if exc.status_code == 404:
+        # Если запрос идет к API (например, фронтенд стучится), отдаем JSON
+        if request.url.path.startswith("/api/"):
+            return JSONResponse({"detail": "Not Found"}, status_code=404)
+        # Если это обычный пользователь в браузере — показываем красивую страницу
+        return templates.TemplateResponse("404.html", {"request": request}, status_code=404)
+    # Остальные ошибки (401, 403 и т.д.) отдаем как есть
+    return JSONResponse({"detail": str(exc.detail)}, status_code=exc.status_code)
+
+# GLOBAL ERROR HANDLER (500)
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Global Error: {exc}", exc_info=True)
