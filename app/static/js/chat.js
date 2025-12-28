@@ -53,6 +53,9 @@ function chatApp() {
         abortController: null,
         lastUserMessage: null,  // Для регенерации
         
+        // Toast уведомления
+        toast: { show: false, message: '', type: 'success' },
+        
         // User Data (из data-атрибутов)
         balance: 0,
 
@@ -207,8 +210,37 @@ function chatApp() {
             }
         },
         
+        showToast(message, type = 'success') {
+            this.toast = { show: true, message, type };
+            setTimeout(() => { this.toast.show = false; }, 2500);
+        },
+        
         copyToClipboard(text) {
             navigator.clipboard.writeText(text);
+            this.showToast('Скопировано!');
+        },
+        
+        exportChat() {
+            if (this.messages.length === 0) return;
+            
+            const chat = this.chatHistory.find(c => c.id === this.activeChatId);
+            const title = chat ? chat.title : 'chat';
+            
+            let content = `# ${title}\n\n`;
+            for (const msg of this.messages) {
+                const role = msg.role === 'user' ? '👤 Вы' : '🤖 AI';
+                content += `## ${role}\n${msg.content}\n\n`;
+            }
+            
+            const blob = new Blob([content], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${title.replace(/[^a-zа-яё0-9]/gi, '_')}.md`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            this.showToast('Чат экспортирован');
         },
         
         replyToMessage(msg) {
@@ -342,7 +374,7 @@ function chatApp() {
                                 
                                 if (json.type === 'meta' && !this.activeChatId) {
                                     this.activeChatId = json.chat_id;
-                                    this.loadHistory();
+                                    await this.loadHistory();
                                 }
                                 else if (json.type === 'content') {
                                     botText += json.text;
