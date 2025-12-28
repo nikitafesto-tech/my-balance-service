@@ -89,11 +89,41 @@
                     <div class="w-10 h-10 fill-white opacity-80" x-html="getCurrentGroupIcon()"></div>
                 </div>
                 <h2 class="text-2xl font-bold mb-2">Чем могу помочь?</h2>
-                <div class="text-gray-500 max-w-md mb-8 flex items-center justify-center gap-2">
+                <div class="text-gray-500 max-w-md mb-4 flex items-center justify-center gap-2">
                     <span>Модель:</span>
-                    <span class="text-green font-bold flex items-center gap-2">
-                        <span x-text="currentModelName"></span>
-                    </span>
+                    <span class="text-green font-bold" x-text="currentModelName"></span>
+                </div>
+                
+                <!-- Примеры запросов -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl w-full px-4">
+                    <button @click="userInput = 'Напиши код на Python для...'; $refs.chatInput.focus()" class="text-left p-4 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition group">
+                        <div class="flex items-center gap-2 text-gray-400 group-hover:text-white mb-1">
+                            <i class="ph ph-code text-lg"></i>
+                            <span class="text-sm font-medium">Написать код</span>
+                        </div>
+                        <p class="text-xs text-gray-500">Python, JavaScript, SQL...</p>
+                    </button>
+                    <button @click="userInput = 'Объясни простыми словами что такое...'; $refs.chatInput.focus()" class="text-left p-4 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition group">
+                        <div class="flex items-center gap-2 text-gray-400 group-hover:text-white mb-1">
+                            <i class="ph ph-lightbulb text-lg"></i>
+                            <span class="text-sm font-medium">Объяснить тему</span>
+                        </div>
+                        <p class="text-xs text-gray-500">Простым языком о сложном</p>
+                    </button>
+                    <button @click="userInput = 'Напиши текст для...'; $refs.chatInput.focus()" class="text-left p-4 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition group">
+                        <div class="flex items-center gap-2 text-gray-400 group-hover:text-white mb-1">
+                            <i class="ph ph-pencil-line text-lg"></i>
+                            <span class="text-sm font-medium">Написать текст</span>
+                        </div>
+                        <p class="text-xs text-gray-500">Статьи, письма, посты</p>
+                    </button>
+                    <button @click="userInput = 'Переведи на английский: '; $refs.chatInput.focus()" class="text-left p-4 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition group">
+                        <div class="flex items-center gap-2 text-gray-400 group-hover:text-white mb-1">
+                            <i class="ph ph-translate text-lg"></i>
+                            <span class="text-sm font-medium">Перевести</span>
+                        </div>
+                        <p class="text-xs text-gray-500">На любой язык</p>
+                    </button>
                 </div>
             </div>
 
@@ -187,9 +217,10 @@
                                                 <div x-show="group.isOpen" x-collapse class="pl-2 space-y-0.5 mt-1">
                                                     <template x-for="model in group.models" :key="model.id">
                                                         <button @click="setModel(model.id, model.name); open=false" 
-                                                                class="w-full text-left px-3 py-2 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/10 transition-colors ml-2 border-l border-white/5 flex justify-between items-center"
+                                                                class="w-full text-left px-3 py-2 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/10 transition-colors ml-2 border-l border-white/5 flex justify-between items-center gap-2"
                                                                 :class="currentModel === model.id ? 'text-green bg-green/5 border-green' : ''">
-                                                            <span x-text="model.name"></span>
+                                                            <span x-text="model.name" class="flex-1"></span>
+                                                            <span class="text-[10px] text-gray-600" x-text="model.cost_input + '/' + model.cost_output + ' ₽'"></span>
                                                             <i x-show="currentModel === model.id" class="ph ph-check text-green"></i>
                                                         </button>
                                                     </template>
@@ -225,8 +256,21 @@
                             </div>
                         </div>
 
-                        <button @click="sendMessage()" class="p-2 rounded-xl transition-all duration-200" :class="userInput.trim() || attachedFileUrl ? 'bg-white text-black hover:bg-gray-200' : 'bg-white/10 text-gray-500 cursor-not-allowed'" :disabled="!userInput.trim() && !attachedFileUrl">
+                        <!-- Кнопка отправки / остановки -->
+                        <button x-show="!isTyping" @click="sendMessage()" class="p-2 rounded-xl transition-all duration-200" :class="userInput.trim() || attachedFileUrl ? 'bg-white text-black hover:bg-gray-200' : 'bg-white/10 text-gray-500 cursor-not-allowed'" :disabled="!userInput.trim() && !attachedFileUrl">
                             <i class="ph ph-arrow-up text-xl font-bold"></i>
+                        </button>
+                        <button x-show="isTyping" @click="stopGeneration()" class="p-2 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-all duration-200" title="Остановить">
+                            <i class="ph ph-stop text-xl font-bold"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- Счётчик символов и регенерация -->
+                    <div class="flex items-center justify-between px-4 pb-2 text-xs text-gray-500">
+                        <span x-text="userInput.length + ' символов'"></span>
+                        <button x-show="lastUserMessage && !isTyping && messages.length > 0" @click="regenerate()" class="flex items-center gap-1 hover:text-white transition">
+                            <i class="ph ph-arrows-clockwise"></i>
+                            <span>Повторить</span>
                         </button>
                     </div>
                 </div>

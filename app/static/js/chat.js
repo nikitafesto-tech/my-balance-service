@@ -49,6 +49,10 @@ function chatApp() {
         temperature: 0.7,
         webSearch: false,
         
+        // Streaming control
+        abortController: null,
+        lastUserMessage: null,  // Для регенерации
+        
         // User Data (из data-атрибутов)
         balance: 0,
 
@@ -212,6 +216,33 @@ function chatApp() {
             this.replyContext = { id: msg.id, content: msg.content, preview: preview };
             this.$refs.chatInput.focus();
         },
+        
+        stopGeneration() {
+            if (this.abortController) {
+                this.abortController.abort();
+                this.abortController = null;
+            }
+            this.isTyping = false;
+            // Убираем индикатор стриминга
+            const lastMsg = this.messages[this.messages.length - 1];
+            if (lastMsg && lastMsg.isStreaming) {
+                lastMsg.isStreaming = false;
+                lastMsg.content += ' [Остановлено]';
+            }
+        },
+        
+        async regenerate() {
+            if (!this.lastUserMessage || this.isTyping) return;
+            
+            // Удаляем последний ответ ассистента
+            if (this.messages.length > 0 && this.messages[this.messages.length - 1].role === 'assistant') {
+                this.messages.pop();
+            }
+            
+            // Повторно отправляем
+            this.userInput = this.lastUserMessage;
+            await this.sendMessage();
+        },
 
         async sendMessage() {
             if (!this.userInput.trim() && !this.attachedFileUrl) return;
@@ -226,6 +257,7 @@ function chatApp() {
             this.userInput = '';
             this.attachedFileUrl = null;
             this.replyContext = null;
+            this.lastUserMessage = textToSend;  // Сохраняем для регенерации
             this.$refs.chatInput.style.height = 'auto';
 
             const userMsgId = Date.now();
@@ -236,6 +268,9 @@ function chatApp() {
             
             this.scrollToBottom();
             this.isTyping = true;
+            
+            // Создаём контроллер для отмены
+            this.abortController = new AbortController();
 
             try {
                 const payload = {
@@ -250,7 +285,8 @@ function chatApp() {
                 const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify(payload),
+                    signal: this.abortController.signal
                 });
                 
                 if (response.status === 402) {
