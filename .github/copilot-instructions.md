@@ -1,7 +1,8 @@
-# Copilot Instructions for my-balance-service
+# Copilot Instructions for my-balance-service (ChadGPT Analogue)
 
 ## Project Overview
 **MyService** — FastAPI-based personal account system with OAuth integration through Casdoor and payment processing via YooKassa.
+**Goal**: Create a full analogue of [ChadGPT](https://ask.chadgpt.ru), featuring multi-model AI chat, media generation (Image/Video/Audio), assistants, and knowledge base.
 
 **Key Architecture Insight**: The app acts as an OAuth "bridge" — it handles OAuth callbacks from social networks (VK, Google, Yandex) instead of using Casdoor's standard UI. It then syncs user data with Casdoor and manages a custom `wallets` table for balances.
 
@@ -48,12 +49,43 @@
 - App behind Caddy (HTTPS).
 - `.env` auto-generated from GitHub Secrets.
 
-## Known Issues & Refactoring Targets (Prioritize Fixing)
-1.  **Hardcoded Internal URLs**: `app/services/casdoor.py` uses `http://casdoor:8000`. This should be moved to `CASDOOR_INTERNAL_URL` env var.
-2.  **Blocking Email**: `send_email_via_smtp` in `auth.py` is synchronous. Refactor to use `fastapi-mail` or `BackgroundTasks` to avoid blocking the event loop.
-3.  **Session Cleanup**: `UserSession` table has no expiration. Old sessions accumulate indefinitely.
-4.  **Database Migrations**: Project uses `Base.metadata.create_all()`. **Use Alembic** for any future schema changes.
-5.  **Testing**: No tests exist. New features must include `pytest` tests in `tests/` folder.
+## Roadmap to ChadGPT Analogue (Plan of Changes)
+
+### Phase 1: Real Media Generation (Priority)
+- **Current State**: `generate_ai_response_media` in `ai_generation.py` is a stub (sleeps 2s, returns placeholder).
+- **Action**: Implement `fal-client` integration.
+- **Models to Support**:
+  - **Image**: Flux Pro/Realism, Recraft V3, Midjourney v6.
+  - **Video**: Kling 1.5, Luma Ray, Runway Gen-3, Minimax, Hailuo.
+  - **Audio**: Suno, Udio (via Fal or other provider).
+- **Technical**: Handle async polling for video generation (it takes time).
+
+### Phase 2: Assistants & Personas
+- **Goal**: Allow users to choose "Assistants" (e.g., "Coder", "Copywriter") with predefined system prompts.
+- **Changes**:
+  - New DB Model: `Assistant` (name, icon, system_prompt, is_public, user_id).
+  - API: `GET /api/assistants`.
+  - UI: Add "Assistants" tab in sidebar.
+
+### Phase 3: Knowledge Base (File Context)
+- **Goal**: Allow users to upload docs (PDF, TXT) and chat with them.
+- **Changes**:
+  - Enhance `upload_file_to_s3` to also extract text from documents.
+  - Store extracted text in `FileContext` table or inject into Chat context window.
+  - UI: "Attach to Knowledge Base" button.
+
+### Phase 4: UI/UX Polish
+- **Goal**: Match ChadGPT's clean, icon-heavy aesthetic.
+- **Changes**:
+  - "Auto" model selector (routes to cheap/fast or smart model automatically).
+  - Improved Model Selector with categories (already started in `ai_generation.py`).
+
+## Known Issues & Refactoring Targets
+1.  **Media Generation Stub**: `app/services/ai_generation.py` mocks media generation. Needs real implementation.
+2.  **Hardcoded Internal URLs**: `app/services/casdoor.py` uses `http://casdoor:8000`. Move to `CASDOOR_INTERNAL_URL`.
+3.  **Blocking Email**: `send_email_via_smtp` is synchronous. Use `fastapi-mail` or `BackgroundTasks`.
+4.  **Session Cleanup**: `UserSession` table has no expiration.
+5.  **Database Migrations**: Project uses `Base.metadata.create_all()`. **Use Alembic**.
 
 ## Code Conventions
 
@@ -64,10 +96,11 @@
 
 ## Key Files Reference
 - `app/main.py`: App init, page routes, error handlers.
-- `app/routers/auth.py`: OAuth flow (VK, Google, Yandex, Email, Telegram).
-- `app/services/casdoor.py`: User sync & balance sync.
-- `app/models.py`: SQLAlchemy models (`UserWallet`, `Payment`, `UserSession`, `Chat`).
-- `docker-compose.yml`: Services definition.
+- `app/routers/auth.py`: OAuth flow.
+- `app/routers/chats.py`: Chat logic, message handling.
+- `app/services/ai_generation.py`: **Master Config** for models (`AI_MODELS_GROUPS`), generation logic.
+- `app/services/s3.py`: S3 upload logic.
+- `app/models.py`: DB Models (`UserWallet`, `Chat`, `Message`, `Payment`).
 
 ---
 
@@ -77,43 +110,12 @@
 **DO NOT modify existing columns without migration:**
 ```python
 # UserWallet - PRIMARY user data
-- casdoor_id: String (UNIQUE, format: "{provider}_{user_id}", e.g., "vk_123456")
-- email, name, avatar, phone, balance
+- casdoor_id: String (UNIQUE, format: "{provider}_{user_id}")
+- balance: Float
 
-# UserSession - Auth sessions  
-- session_id: String (UUID, PRIMARY KEY)
-- token: String (stores casdoor_id, NOT actual token)
-
-# Payment - Transaction history
-- yookassa_payment_id: String (UNIQUE, for idempotency)
-- user_id: String (references casdoor_id, NOT foreign key)
-- status: String (default "pending", changes to "succeeded")
-
-# Chat & Message - AI conversations
-- Chat.user_casdoor_id: ForeignKey to wallets.casdoor_id
-- Chat.model: String (AI model ID, e.g., "openai/gpt-4o")
-- Message.image_url / attachment_url: S3 URLs
-```
-
-### Authentication Flow (DO NOT CHANGE ORDER)
-```
-1. OAuth callback receives `code`
-2. Exchange code → access_token  
-3. Fetch user profile from provider
-4. Build `clean_data = {id, name, email, avatar, phone}`
-5. await finalize_login(clean_data, prefix, db)  # Syncs to Casdoor
-6. return update_session_cookie(response, clean_data, prefix, db)  # Sets cookie
-```
-**Breaking this order = broken auth!**
-
-### Session Cookie Settings
-```python
-response.set_cookie(
-    key="session_id", 
-    value=new_session_id, 
-    httponly=True,      # MUST be True (security)
-    samesite="lax"      # MUST be "lax" for OAuth redirects
-)
+# Chat & Message
+- Chat.model: String (stores model ID from AI_MODELS_GROUPS)
+- Message.image_url: String (S3 URL for generated images)
 ```
 
 ### AI Models Config (app/services/ai_generation.py)
@@ -121,29 +123,27 @@ response.set_cookie(
 ```python
 AI_MODELS_GROUPS = [
     {
-        "name": "Group Name",           # Display name
-        "icon": "<svg>...</svg>",       # SVG string for UI
+        "name": "Group Name",
+        "icon": "<svg>...</svg>",
         "models": [
             {
-                "id": "provider/model-name",  # OpenRouter format
+                "id": "provider/model-name",
                 "name": "Display Name",
-                "cost_input": 2.5,            # $ per 1M input tokens
-                "cost_output": 10             # $ per 1M output tokens
+                "cost_input": 2.5,
+                "cost_output": 10
             }
         ]
     }
 ]
 ```
-**Frontend reads this via `GET /api/chats/models`**
 
 ### Chat Streaming Protocol (NDJSON)
 ```json
-{"type": "meta", "chat_id": 123}        // First message
-{"type": "content", "text": "Hello"}    // Streamed chunks
-{"type": "balance", "balance": 99.50}   // Final balance
-{"type": "error", "text": "Error msg"}  // On failure
+{"type": "meta", "chat_id": 123}
+{"type": "content", "text": "Hello"}
+{"type": "balance", "balance": 99.50}
+{"type": "error", "text": "Error msg"}
 ```
-**Frontend in chat.html expects exactly these types!**
 
 ### Media Models Detection
 ```python
@@ -151,129 +151,61 @@ AI_MODELS_GROUPS = [
 media_models_keywords = ["recraft", "flux", "midjourney", "veo", "sora", "luma", "video", "image"]
 is_media = any(kw in model.lower() for kw in media_models_keywords)
 ```
-**Adding new media model? Add keyword here!**
 
 ### S3 Upload (app/services/s3.py)
 ```python
-# Public URL construction - DO NOT CHANGE without updating frontend
+# Public URL construction
 if S3_PUBLIC_DOMAIN:
     return f"{S3_PUBLIC_DOMAIN}/{unique_filename}"
 else:
     return f"{ENDPOINT_URL}/{BUCKET_NAME}/{unique_filename}"
 ```
 
-### YooKassa Payment Creation
-```python
-# CRITICAL: Never include payment_method_data with embedded widget!
-payment = YooPayment.create({
-    "amount": {"value": str(amount), "currency": "RUB"},
-    "confirmation": {"type": "embedded"},  # Triggers widget
-    "capture": True,
-    "description": f"Пополнение {user.email}",
-    "metadata": {"user_id": user.casdoor_id}
-})
-```
-
-### Frontend Dependencies (chat.html)
-```html
-<!-- DO NOT REMOVE - Required libraries -->
-<script src="https://cdn.tailwindcss.com"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-<script src="https://unpkg.com/@phosphor-icons/web"></script>
-```
-
-### Template Variables (Jinja2 Context)
-```python
-# chat.html expects these variables:
-{
-    "request": request,      # Required by Jinja2
-    "name": user.name,
-    "email": user.email, 
-    "balance": int(user.balance),
-    "avatar": user.avatar,
-    "user_id": user.casdoor_id
-}
-
-# profile.html expects:
-{"request", "name", "balance", "email", "avatar"}
-```
-
 ---
 
 ## 🔧 Safe Modification Guidelines
 
-### Adding New OAuth Provider
-1. Add env vars: `{PROVIDER}_CLIENT_ID`, `{PROVIDER}_CLIENT_SECRET`
-2. Create `/login/{provider}-direct` route (redirect to OAuth)
-3. Create `/callback/{provider}` route (handle callback)
-4. Build `clean_data` dict with required fields
-5. Call `finalize_login()` + `update_session_cookie()`
-
 ### Adding New AI Model
-1. Add to `AI_MODELS_GROUPS` in `ai_generation.py`
-2. If media model → add keyword to `media_models_keywords` in `chats.py`
-3. Set correct `cost_input`/`cost_output`
-4. Test via UI model selector
+1. Add to `AI_MODELS_GROUPS` in `ai_generation.py`.
+2. If media model → add keyword to `media_models_keywords` in `chats.py`.
+3. Set correct `cost_input`/`cost_output`.
 
-### Adding New API Endpoint
-1. Use `/api/` prefix for JSON responses
-2. Add to appropriate router (`auth.py`, `chats.py`) or `main.py`
-3. Use `get_current_user(request, db)` for auth
-4. Return `JSONResponse` or `StreamingResponse`
-5. Handle 401/402/404 with `HTTPException`
+### Implementing Media Generation
+1. Modify `generate_ai_response_media` in `ai_generation.py`.
+2. Use `fal-client` to call the specific model API.
+3. Return the resulting image/video URL and cost.
 
 ### Modifying Database Schema
-1. **NEVER** use `Base.metadata.create_all()` for changes
-2. Create Alembic migration: `alembic revision --autogenerate`
-3. Test migration locally first
-4. Apply: `alembic upgrade head`
+1. **NEVER** use `Base.metadata.create_all()` for changes.
+2. Create Alembic migration: `alembic revision --autogenerate`.
+3. Apply: `alembic upgrade head`.
 
 ---
 
 ## 📊 Current Working State (Dec 2025)
 
 ### Functional Features ✅
-- OAuth: VK, Google, Yandex, Telegram, Email
-- Payments: YooKassa embedded widget
-- AI Chat: 50+ models, streaming, markdown
-- File uploads: Images to S3
-- Vision: Attach images to prompts
-- Media generation: Fal.ai integration (partial)
+- OAuth: VK, Google, Yandex, Telegram, Email.
+- Payments: YooKassa embedded widget.
+- AI Chat: Text streaming (OpenRouter).
+- File uploads: Images to S3.
+- Vision: Attach images to prompts.
+
+### Missing / In Progress 🚧
+- **Media Generation**: Currently mocked (returns placeholder).
+- **Assistants**: Not implemented.
+- **Knowledge Base**: Not implemented.
+- **Video/Audio**: Not implemented.
 
 ### Environment Variables Required
 ```env
 # Core
 SITE_URL, AUTH_URL, DB_URL
 
-# Casdoor
-CASDOOR_CLIENT_ID, CASDOOR_CLIENT_SECRET, CASDOOR_CERT_FILE
-
-# OAuth Providers  
-VK_CLIENT_ID, VK_CLIENT_SECRET
-GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
-YANDEX_CLIENT_ID, YANDEX_CLIENT_SECRET
-TELEGRAM_BOT_TOKEN
-
-# Payments
-YOOKASSA_SHOP_ID, YOOKASSA_SECRET_KEY
-
-# Email
-SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD
-
-# S3 Storage
-S3_ACCESS_KEY, S3_SECRET_KEY, S3_BUCKET_NAME
-S3_ENDPOINT_URL, S3_REGION_NAME, S3_PUBLIC_DOMAIN
-
 # AI
 OPENROUTER_API_KEY, FAL_KEY
-```
+AI_PROXY_URL (Optional)
 
-### Docker Services
-```yaml
-db:       PostgreSQL 15 (port 5432)
-casdoor:  Identity Provider (port 8000)
-app:      FastAPI (port 8081)
-caddy:    Reverse Proxy (ports 80, 443)
+# Storage
+S3_ACCESS_KEY, S3_SECRET_KEY, S3_BUCKET_NAME, S3_ENDPOINT_URL, S3_PUBLIC_DOMAIN
 ```
