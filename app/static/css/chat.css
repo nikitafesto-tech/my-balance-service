@@ -1,0 +1,107 @@
+/* =============================================
+   CHAT PAGE STYLES
+   Стили для страницы чата (chat.html)
+   ============================================= */
+
+/* Кастомный скроллбар для модального меню моделей */
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: #1a1a1a; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #444; border-radius: 2px; }
+
+/* Блок "Размышления" (thinking) для моделей с reasoning */
+details.reasoning { 
+    background: rgba(255, 255, 255, 0.03); 
+    border: 1px solid rgba(255, 255, 255, 0.08); 
+    border-radius: 8px; 
+    margin-bottom: 12px; 
+    overflow: hidden; 
+}
+
+details.reasoning summary { 
+    padding: 10px 14px; 
+    cursor: pointer; 
+    font-size: 13px; 
+    font-weight: 500; 
+    color: #888; 
+    list-style: none; 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+    transition: color 0.2s; 
+}
+
+details.reasoning summary:hover { 
+    color: #ccc; 
+    background: rgba(255, 255, 255, 0.02); 
+}
+
+details.reasoning summary::before { 
+    content: "⚡"; 
+    font-size: 14px; 
+    opacity: 0.7; 
+}
+
+details.reasoning[open] summary { 
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05); 
+}
+
+.reasoning-content { 
+    padding: 14px; 
+    font-size: 13px; 
+    color: #a0a0a0; 
+    font-family: 'Menlo', monospace; 
+    line-height: 1.6; 
+    white-space: pre-wrap; 
+    background: rgba(0, 0, 0, 0.2); 
+}
+
+/* Обёртка для блоков кода с подсветкой */
+.code-wrapper { 
+    margin: 12px 0; 
+    border: 1px solid #333; 
+    border-radius: 8px; 
+    overflow: hidden; 
+    background: #161616; 
+}
+
+.code-header { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    padding: 8px 12px; 
+    background: #252525; 
+    border-bottom: 1px solid #333; 
+    font-family: sans-serif; 
+    font-size: 12px; 
+    color: #999; 
+}
+
+.copy-code-btn { 
+    cursor: pointer; 
+    display: flex; 
+    align-items: center; 
+    gap: 4px; 
+    color: #777; 
+    transition: color 0.2s; 
+}
+
+.copy-code-btn:hover { 
+    color: #fff; 
+}
+
+/* Стили для markdown-контента */
+.markdown-content pre { 
+    margin: 0; 
+    border: none; 
+    background: transparent !important; 
+    border-radius: 0; 
+}
+
+.markdown-content pre code { 
+    display: block; 
+    padding: 16px; 
+    font-family: 'Consolas', 'Monaco', monospace; 
+    font-size: 13px; 
+    line-height: 1.5; 
+    overflow-x: auto; 
+}

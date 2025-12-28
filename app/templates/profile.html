@@ -1,27 +1,35 @@
-{% extends "base.html" %}
+{% extends "layouts/base.html" %}
 
 {% block title %}Профиль — Neirosetim{% endblock %}
+
+{% block head_scripts %}
+<script src="https://yookassa.ru/checkout-widget/v1/checkout-widget.js"></script>
+{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="/static/css/pages/profile.css">
+{% endblock %}
 
 {% block content %}
 
 <div class="profile-wrapper">
-    <h2 style="margin-bottom: 20px;">Мой кошелек</h2>
+    <h2 class="profile-title">Мой кошелек</h2>
     
     <div class="payment-card">
-        <div style="color: #888; font-size: 14px; text-transform: uppercase;">Текущий баланс</div>
-        <div class="big-balance">{{ balance }} ₽</div>
+        <div class="payment-card__label">Текущий баланс</div>
+        <div class="payment-card__balance">{{ balance }} ₽</div>
         
-        <p style="color: #666; font-size: 14px;">Пополнение картой РФ или СБП без комиссии</p>
+        <p class="payment-card__hint">Пополнение картой РФ или СБП без комиссии</p>
 
-        <div class="input-row">
-            <input type="number" id="amount-input" class="pay-input" value="100" min="10">
-            <button onclick="openPaymentModal()" id="pay-btn" class="pay-btn">Пополнить</button>
+        <div class="payment-form">
+            <input type="number" id="amount-input" class="payment-input" value="100" min="10">
+            <button onclick="openPaymentModal()" id="pay-btn" class="payment-btn">Пополнить</button>
         </div>
-        <div id="error-msg" style="color: #e74c3c; margin-top: 15px; font-size: 14px;"></div>
+        <div id="error-msg" class="payment-error"></div>
     </div>
 
-    <div style="text-align: center; margin-top: 40px;">
-        <a href="/logout" style="color: #666; font-size: 14px; border-bottom: 1px dashed #666;">Выйти из аккаунта</a>
+    <div class="logout-section">
+        <a href="/logout" class="logout-link">Выйти из аккаунта</a>
     </div>
 </div>
 
@@ -35,71 +43,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-    let checkout = null;
-
-    function closeModal() {
-        const modal = document.getElementById('payment-modal');
-        modal.classList.remove('active'); // Плавное скрытие
-        setTimeout(() => {
-            modal.style.display = 'none'; // Полное скрытие
-            if (checkout) { checkout.destroy(); checkout = null; }
-        }, 300);
-    }
-
-    async function openPaymentModal() {
-        const amount = document.getElementById('amount-input').value;
-        const btn = document.getElementById('pay-btn');
-        const errorMsg = document.getElementById('error-msg');
-        const modal = document.getElementById('payment-modal');
-        
-        if (amount < 10) { alert("Минимум 10р"); return; }
-        
-        btn.disabled = true; btn.innerText = "...";
-        try {
-            const res = await fetch('/payment/create', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ amount: amount })
-            });
-            const data = await res.json();
-            if (data.error) throw new Error(data.error);
-
-            // Сначала display flex, потом active для плавности
-            modal.style.display = 'flex';
-            // Небольшая задержка, чтобы анимация opacity сработала
-            setTimeout(() => { modal.classList.add('active'); }, 10);
-            
-            checkout = new window.YooMoneyCheckoutWidget({
-                confirmation_token: data.confirmation_token,
-                return_url: window.location.href,
-                customization: {
-                    colors: {
-                        control_primary: '#27ae60',
-                        control_primary_content: '#FFFFFF',
-                        background: '#161616',
-                        border: '#333333',
-                        text: '#FFFFFF',
-                        control_secondary: '#2a2a2a'
-                    },
-                    modal: false
-                },
-                error_callback: function(error) { console.log(error); closeModal(); }
-            });
-            
-            checkout.render('yookassa-widget');
-            
-            checkout.on('success', () => { 
-                checkout.destroy(); closeModal(); 
-                alert("Оплата прошла!"); window.location.reload(); 
-            });
-            checkout.on('fail', () => { checkout.destroy(); closeModal(); });
-
-        } catch (e) {
-            errorMsg.innerText = e.message;
-        } finally {
-            btn.disabled = false; btn.innerText = "Пополнить";
-        }
-    }
-</script>
+<script src="/static/js/profile.js"></script>
 {% endblock %}

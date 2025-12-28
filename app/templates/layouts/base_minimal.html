@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0a0a0a">
+    
+    <title>{% block title %}Neirosetim{% endblock %}</title>
+    
+    {# Favicon #}
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    
+    {# Main Styles #}
+    <link rel="stylesheet" href="/static/css/main.css">
+    
+    {# Page-specific styles #}
+    {% block styles %}{% endblock %}
+    
+    {# Theme script (early load) #}
+    <script src="/static/js/theme.js"></script>
+</head>
+<body class="minimal-layout">
+    {# Minimal layout - no header/footer, centered content #}
+    
+    <main class="minimal-container">
+        {% block content %}{% endblock %}
+    </main>
+    
+    {# Optional minimal footer #}
+    {% if show_footer %}
+        {% set minimal = true %}
+        {% include 'components/_footer.html' %}
+    {% endif %}
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>

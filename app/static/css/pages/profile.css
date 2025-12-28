@@ -1,0 +1,173 @@
+/**
+ * Profile Page Styles
+ */
+
+.profile-wrapper {
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.profile-title {
+    font-size: var(--text-2xl);
+    font-weight: 700;
+    margin-bottom: var(--spacing-6);
+    color: var(--color-text);
+}
+
+/* Payment Card */
+.payment-card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-2xl);
+    padding: var(--spacing-10);
+    text-align: center;
+}
+
+.payment-card__label {
+    font-size: var(--text-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+}
+
+.payment-card__balance {
+    font-size: var(--text-4xl);
+    font-weight: 700;
+    color: var(--color-text);
+    margin: var(--spacing-4) 0;
+}
+
+.payment-card__hint {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    margin-bottom: var(--spacing-6);
+}
+
+/* Payment Form */
+.payment-form {
+    display: flex;
+    gap: var(--spacing-3);
+    justify-content: center;
+    margin-top: var(--spacing-6);
+}
+
+.payment-input {
+    width: 120px;
+    padding: var(--spacing-4);
+    
+    background-color: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    
+    font-size: var(--text-lg);
+    font-weight: 600;
+    text-align: center;
+    color: var(--color-text);
+    
+    transition: all var(--transition-fast);
+}
+
+.payment-input:focus {
+    border-color: var(--color-primary);
+    outline: none;
+}
+
+.payment-btn {
+    padding: var(--spacing-4) var(--spacing-6);
+    
+    background-color: var(--color-text);
+    color: var(--color-text-inverse);
+    border: none;
+    border-radius: var(--radius-lg);
+    
+    font-size: var(--text-base);
+    font-weight: 700;
+    cursor: pointer;
+    
+    transition: all var(--transition-fast);
+}
+
+.payment-btn:hover {
+    opacity: 0.9;
+}
+
+.payment-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Error Message */
+.payment-error {
+    margin-top: var(--spacing-4);
+    font-size: var(--text-sm);
+    color: var(--color-danger);
+}
+
+/* Logout Link */
+.logout-section {
+    text-align: center;
+    margin-top: var(--spacing-10);
+}
+
+.logout-link {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    border-bottom: 1px dashed var(--color-border);
+    transition: color var(--transition-fast);
+}
+
+.logout-link:hover {
+    color: var(--color-text);
+}
+
+/* ================================
+   Legacy styles (для совместимости)
+   ================================ */
+
+.big-balance {
+    font-size: var(--text-4xl);
+    font-weight: 700;
+    color: var(--color-text);
+    margin: var(--spacing-4) 0;
+}
+
+.input-row {
+    display: flex;
+    gap: var(--spacing-3);
+    justify-content: center;
+    margin-top: var(--spacing-6);
+}
+
+.pay-input {
+    width: 120px;
+    padding: var(--spacing-4);
+    background-color: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    font-size: var(--text-lg);
+    font-weight: 600;
+    text-align: center;
+    color: var(--color-text);
+    transition: all var(--transition-fast);
+}
+
+.pay-input:focus {
+    border-color: var(--color-primary);
+    outline: none;
+}
+
+.pay-btn {
+    padding: var(--spacing-4) var(--spacing-6);
+    background-color: var(--color-text);
+    color: var(--color-text-inverse);
+    border: none;
+    border-radius: var(--radius-lg);
+    font-size: var(--text-base);
+    font-weight: 700;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.pay-btn:hover {
+    opacity: 0.9;
+}

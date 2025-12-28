@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0a0a0a">
+    
+    <title>{% block title %}Neirosetim AI{% endblock %}</title>
+    
+    {# Favicon #}
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    
+    {# Main Styles #}
+    <link rel="stylesheet" href="/static/css/main.css">
+    
+    {# Theme script (early load) #}
+    <script src="/static/js/theme.js"></script>
+    
+    {# Tailwind for app pages #}
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: ['selector', '[data-theme="dark"]'],
+            theme: {
+                extend: {
+                    colors: {
+                        // Используем CSS переменные
+                        'bg': 'var(--color-bg)',
+                        'bg-secondary': 'var(--color-bg-secondary)',
+                        'bg-tertiary': 'var(--color-bg-tertiary)',
+                        'bg-elevated': 'var(--color-bg-elevated)',
+                        'bg-hover': 'var(--color-bg-hover)',
+                        'text-primary': 'var(--color-text)',
+                        'text-secondary': 'var(--color-text-secondary)',
+                        'text-muted': 'var(--color-text-muted)',
+                        'border': 'var(--color-border)',
+                        'primary': 'var(--color-primary)',
+                        'green': '#22c55e',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    {# Alpine.js #}
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    {# Markdown & Syntax Highlighting #}
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    
+    {# Icons #}
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    {# Page-specific styles #}
+    {% block styles %}{% endblock %}
+    
+    <style>
+        /* Alpine cloak */
+        [x-cloak] { display: none !important; }
+        
+        /* Full height for app layout */
+        html, body { height: 100%; overflow: hidden; }
+        body { display: flex; flex-direction: column; }
+    </style>
+</head>
+<body class="bg-bg text-text-primary antialiased">
+    {% block content %}{% endblock %}
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>

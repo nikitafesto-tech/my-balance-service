@@ -1,0 +1,207 @@
+/* =============================================
+   SIGNIN PAGE STYLES
+   Стили для страницы входа (signin.html)
+   ============================================= */
+
+/* --- Базовые стили --- */
+* { box-sizing: border-box; }
+
+body {
+    background-color: #0a0a0a;
+    color: #ffffff;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+    padding: 20px;
+}
+
+/* Карточка входа */
+.login-card {
+    background-color: #1a1a1a;
+    border-radius: 24px;
+    padding: 40px;
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+    position: relative;
+    overflow: hidden;
+}
+
+h2 { margin: 0 0 10px 0; font-weight: 700; font-size: 24px; }
+p.subtitle { color: #999; font-size: 15px; margin: 0 0 35px 0; }
+
+/* --- Кнопки --- */
+.btn {
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    width: 100%; 
+    padding: 14px; 
+    border-radius: 14px;
+    text-decoration: none; 
+    font-weight: 600; 
+    font-size: 16px;
+    border: none; 
+    cursor: pointer; 
+    transition: 0.2s;
+}
+
+.btn:active { transform: scale(0.98); }
+.btn svg { width: 24px; height: 24px; margin-right: 12px; }
+
+.btn-yandex { 
+    background-color: #2a2a2a; 
+    color: white; 
+    margin-bottom: 25px; 
+    padding: 16px; 
+    font-size: 17px; 
+}
+.btn-yandex:hover { background-color: #333; }
+
+.btn-secondary { 
+    background-color: #2a2a2a; 
+    color: #cccccc; 
+    margin-bottom: 12px; 
+    font-weight: 500; 
+}
+.btn-secondary:hover { background-color: #333; color: #fff; }
+.btn-secondary svg { fill: #999; }
+
+.btn-primary { 
+    background-color: #27ae60; 
+    color: white; 
+    margin-top: 15px; 
+}
+.btn-primary:hover { background-color: #219150; }
+.btn-primary:disabled { 
+    background-color: #444; 
+    color: #888; 
+    cursor: not-allowed; 
+}
+
+/* --- Соцсети --- */
+.social-divider { 
+    color: #555; 
+    font-size: 13px; 
+    margin: 25px 0; 
+    display: flex; 
+    align-items: center; 
+}
+.social-divider::before, 
+.social-divider::after { 
+    content: ""; 
+    flex: 1; 
+    border-bottom: 1px solid #333; 
+    margin: 0 10px; 
+}
+
+.social-row { 
+    display: flex; 
+    justify-content: center; 
+    gap: 15px; 
+    margin-bottom: 30px; 
+}
+
+.social-icon { 
+    background-color: #2a2a2a; 
+    width: 56px; 
+    height: 56px; 
+    border-radius: 50%; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    transition: 0.2s; 
+    position: relative;
+    overflow: hidden;
+}
+.social-icon:hover { 
+    background-color: #333; 
+    transform: translateY(-2px); 
+}
+
+/* Специальный стиль для Telegram виджета */
+.telegram-widget-wrapper {
+    position: absolute;
+    top: -10px; 
+    left: -20px;
+    opacity: 0.0001;
+    transform: scale(2);
+    z-index: 10;
+    cursor: pointer;
+}
+
+/* --- Форма Email --- */
+#email-section { 
+    display: none; 
+    text-align: left; 
+    animation: fadeIn 0.3s ease; 
+}
+
+.input-group { margin-bottom: 15px; }
+
+.input-label { 
+    display: block; 
+    color: #888; 
+    font-size: 13px; 
+    margin-bottom: 5px; 
+    margin-left: 5px; 
+}
+
+.form-input { 
+    width: 100%; 
+    padding: 14px; 
+    background: #2a2a2a; 
+    border: 1px solid #333; 
+    border-radius: 12px; 
+    color: white; 
+    font-size: 16px; 
+    outline: none; 
+    transition: 0.2s;
+}
+.form-input:focus { 
+    border-color: #27ae60; 
+    background: #222; 
+}
+
+.back-btn { 
+    background: none; 
+    border: none; 
+    color: #777; 
+    width: 100%; 
+    margin-top: 15px; 
+    cursor: pointer; 
+    font-size: 14px; 
+}
+.back-btn:hover { color: #aaa; }
+
+#code-input-group { display: none; }
+
+#email-error { 
+    color: #e74c3c; 
+    font-size: 13px; 
+    margin-top: 10px; 
+    text-align: center; 
+    display: none; 
+}
+
+@keyframes fadeIn { 
+    from { opacity: 0; transform: translateY(10px); } 
+    to { opacity: 1; transform: translateY(0); } 
+}
+
+/* --- Footer --- */
+.footer-links { 
+    margin-top: 35px; 
+    font-size: 12px; 
+    color: #666; 
+    line-height: 1.5; 
+}
+.footer-links a { 
+    color: #888; 
+    text-decoration: none; 
+    border-bottom: 1px dotted #555; 
+}

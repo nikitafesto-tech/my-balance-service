@@ -1,0 +1,63 @@
+/* =============================================
+   BASE STYLES
+   Общие стили для всего приложения
+   ============================================= */
+
+/* --- Скроллбар (глобальный, тёмная тема) --- */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #555; }
+
+/* Alpine.js cloak */
+[x-cloak] { display: none !important; }
+
+/* --- CSS Variables (Token System) --- */
+:root {
+    /* Layer 1: Primitives */
+    --color-black: #0d0d0d;
+    --color-dark-1: #161616;
+    --color-dark-2: #1a1a1a;
+    --color-dark-3: #1e1e1e;
+    --color-dark-4: #222222;
+    --color-dark-5: #2a2a2a;
+    --color-gray-1: #333333;
+    --color-gray-2: #444444;
+    --color-gray-3: #555555;
+    --color-gray-4: #666666;
+    --color-gray-5: #888888;
+    --color-gray-6: #999999;
+    --color-gray-7: #cccccc;
+    --color-white: #ffffff;
+    --color-green: #27ae60;
+    --color-green-hover: #219150;
+    --color-red: #e74c3c;
+    --color-blue: #3498db;
+    
+    /* Layer 2: Semantic */
+    --bg-primary: var(--color-black);
+    --bg-secondary: var(--color-dark-1);
+    --bg-card: var(--color-dark-2);
+    --bg-input: var(--color-dark-5);
+    --bg-hover: var(--color-dark-3);
+    --text-primary: var(--color-white);
+    --text-secondary: var(--color-gray-5);
+    --text-muted: var(--color-gray-6);
+    --border-primary: var(--color-gray-1);
+    --border-subtle: var(--color-dark-4);
+    --accent-primary: var(--color-green);
+    --accent-hover: var(--color-green-hover);
+    --error: var(--color-red);
+    
+    /* Layer 3: Component-specific */
+    --header-height: 70px;
+    --sidebar-width: 288px;
+    --border-radius-sm: 8px;
+    --border-radius-md: 12px;
+    --border-radius-lg: 16px;
+    --border-radius-xl: 20px;
+    --border-radius-full: 9999px;
+    --transition-fast: 0.15s ease;
+    --transition-normal: 0.2s ease;
+    --transition-slow: 0.3s ease;
+}

@@ -1,0 +1,127 @@
+/**
+ * Chat Page Styles
+ * Стили для страницы чата (chat.html)
+ */
+
+/* Кастомный скроллбар для модального меню моделей */
+.custom-scrollbar::-webkit-scrollbar { 
+    width: 4px; 
+}
+
+.custom-scrollbar::-webkit-scrollbar-track { 
+    background: var(--color-bg-secondary); 
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb { 
+    background: var(--color-border); 
+    border-radius: 2px; 
+}
+
+/* Блок "Размышления" (thinking) для моделей с reasoning */
+details.reasoning { 
+    background: rgba(255, 255, 255, 0.03); 
+    border: 1px solid rgba(255, 255, 255, 0.08); 
+    border-radius: var(--radius-md); 
+    margin-bottom: var(--spacing-3); 
+    overflow: hidden; 
+}
+
+details.reasoning summary { 
+    padding: var(--spacing-3) var(--spacing-4); 
+    cursor: pointer; 
+    font-size: var(--text-sm); 
+    font-weight: 500; 
+    color: var(--color-text-muted); 
+    list-style: none; 
+    display: flex; 
+    align-items: center; 
+    gap: var(--spacing-2); 
+    transition: color var(--transition-fast); 
+}
+
+details.reasoning summary:hover { 
+    color: var(--color-text-secondary); 
+    background: rgba(255, 255, 255, 0.02); 
+}
+
+details.reasoning summary::before { 
+    content: "⚡"; 
+    font-size: var(--text-sm); 
+    opacity: 0.7; 
+}
+
+details.reasoning[open] summary { 
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05); 
+}
+
+.reasoning-content { 
+    padding: var(--spacing-4); 
+    font-size: var(--text-sm); 
+    color: var(--color-text-secondary); 
+    font-family: var(--font-mono); 
+    line-height: 1.6; 
+    white-space: pre-wrap; 
+    background: rgba(0, 0, 0, 0.2); 
+}
+
+/* Обёртка для блоков кода с подсветкой */
+.code-wrapper { 
+    margin: var(--spacing-3) 0; 
+    border: 1px solid var(--color-border); 
+    border-radius: var(--radius-md); 
+    overflow: hidden; 
+    background: var(--color-bg-secondary); 
+}
+
+.code-header { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    padding: var(--spacing-2) var(--spacing-3); 
+    background: var(--color-bg-tertiary); 
+    border-bottom: 1px solid var(--color-border); 
+    font-family: var(--font-sans); 
+    font-size: var(--text-xs); 
+    color: var(--color-text-muted); 
+}
+
+.copy-code-btn { 
+    cursor: pointer; 
+    display: flex; 
+    align-items: center; 
+    gap: var(--spacing-1); 
+    color: var(--color-text-muted); 
+    transition: color var(--transition-fast); 
+}
+
+.copy-code-btn:hover { 
+    color: var(--color-text); 
+}
+
+/* Стили для markdown-контента */
+.markdown-content pre { 
+    margin: 0; 
+    border: none; 
+    background: transparent !important; 
+    border-radius: 0; 
+}
+
+.markdown-content pre code { 
+    display: block; 
+    padding: var(--spacing-4); 
+    font-family: var(--font-mono); 
+    font-size: var(--text-sm); 
+    line-height: 1.5; 
+    overflow-x: auto; 
+}
+
+/* Light theme adjustments for chat */
+[data-theme="light"] details.reasoning {
+    background: rgba(0, 0, 0, 0.02);
+    border-color: var(--color-border);
+}
+
+[data-theme="light"] .reasoning-content {
+    background: rgba(0, 0, 0, 0.03);
+    color: var(--color-text-secondary);
+}
