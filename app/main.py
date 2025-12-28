@@ -2,7 +2,7 @@ import logging
 import sys
 import os
 
-from fastapi import FastAPI, Request, Depends, HTTPException, Body, UploadFile, File
+from fastapi import FastAPI, Request, Depends, HTTPException, UploadFile, File
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
@@ -10,20 +10,16 @@ from sqlalchemy.orm import Session
 # ВАЖНО: Добавлен импорт для обработки HTTP ошибок (404)
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-# ЮKassa
-from yookassa import Configuration, Payment as YooPayment
-
 # === ИМПОРТ РОУТЕРОВ ===
-from app.routers import chats, auth
+from app.routers import chats, auth, payments
 
 # === ИМПОРТ ЗАВИСИМОСТЕЙ ===
 from app.dependencies import get_current_user
-from app.services.casdoor import update_casdoor_balance
 from app.services.s3 import upload_file_to_s3
 
 # === ИМПОРТЫ БАЗЫ ===
 from app.database import engine, get_db, Base
-from app.models import UserWallet, UserSession, Payment
+from app.models import UserWallet, UserSession
 
 # --- ЛОГИРОВАНИЕ ---
 logging.basicConfig(level=logging.INFO, stream=sys.stdout)
@@ -64,11 +60,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 # === ПОДКЛЮЧАЕМ РОУТЕРЫ ===
 app.include_router(chats.router)
 app.include_router(auth.router)
-
-# ЮKassa Config
-if os.getenv("YOOKASSA_SHOP_ID"):
-    Configuration.account_id = os.getenv("YOOKASSA_SHOP_ID")
-    Configuration.secret_key = os.getenv("YOOKASSA_SECRET_KEY")
+app.include_router(payments.router)
 
 # ==================== МАРШРУТЫ СТРАНИЦ (UI) ====================
 
@@ -113,42 +105,3 @@ async def upload_file(request: Request, file: UploadFile = File(...), db: Sessio
     
     if not url: raise HTTPException(500, "S3 Upload Failed")
     return {"url": url, "filename": file.filename}
-
-# ==================== ПЛАТЕЖИ (Остаются здесь пока) ====================
-
-@app.post("/payment/create")
-async def create_payment(request: Request, data: dict = Body(...), db: Session = Depends(get_db)):
-    user = get_current_user(request, db)
-    if not user: raise HTTPException(401)
-    amount = data.get("amount")
-    try:
-        payment = YooPayment.create({
-            "amount": {"value": str(amount), "currency": "RUB"},
-            "confirmation": {"type": "embedded"},
-            "capture": True,
-            "description": f"Пополнение {user.email}",
-            "metadata": {"user_id": user.casdoor_id}
-        })
-        db.add(Payment(yookassa_payment_id=payment.id, user_id=user.casdoor_id, amount=float(amount)))
-        db.commit()
-        return {"confirmation_token": payment.confirmation.confirmation_token}
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, 500)
-
-@app.post("/api/payment/webhook")
-async def payment_webhook(request: Request, db: Session = Depends(get_db)):
-    try:
-        event = await request.json()
-        if event['event'] == 'payment.succeeded':
-            obj = event['object']
-            db_pay = db.query(Payment).filter_by(yookassa_payment_id=obj['id']).first()
-            if db_pay and db_pay.status != "succeeded":
-                db_pay.status = "succeeded"
-                wallet = db.query(UserWallet).filter_by(casdoor_id=db_pay.user_id).first()
-                if wallet:
-                    wallet.balance += db_pay.amount
-                    await update_casdoor_balance(db_pay.user_id, wallet.balance)
-                db.commit()
-        return {"status": "ok"}
-    except:
-        return JSONResponse({"status": "error"}, 500)

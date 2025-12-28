@@ -14,11 +14,11 @@
 - **Key Functions**:
   - `sync_user_to_casdoor()` in `app/services/casdoor.py`: Creates user in Casdoor if not exists. **Must** include `"signupApplication": "Myservice"` so user appears in Casdoor admin UI.
   - `finalize_login()` & `update_session_cookie()`: Handles local session creation and cookie setting.
-  - **Session Storage**: `UserSession` table maps `session_id` (UUID) to `casdoor_id`.
+  - **Session Storage**: `UserSession` table maps `session_id` (UUID) to `token` (contains user data).
   - **Redirects**: Redirect URIs must match `SITE_URL` env var (localhost:8081 locally, https://lk.neirosetim.ru in prod).
 
 ### 2. Payment Flow (YooKassa Embedded Widget)
-- **File**: `app/main.py` (payment routes), `app/routers/auth.py` (webhook handler)
+- **File**: `app/routers/payments.py`
 - **Critical Constraint**: When using `confirmation: { type: "embedded" }` (pop-up widget), **never pass `payment_method_data`**. The widget must choose (Card/SBP) internally. Violating this causes `invalid_request` error.
 - **Data Flow**: 
   1. Create payment in YooKassa → get `confirmation_token`
@@ -87,6 +87,13 @@
 4.  **Session Cleanup**: `UserSession` table has no expiration.
 5.  **Database Migrations**: Project uses `Base.metadata.create_all()`. **Use Alembic**.
 
+## ✅ Completed Refactoring (Dec 2025)
+1.  **CSS Consolidation**: Merged 7 CSS files into single `styles.css`
+2.  **Removed dead files**: Deleted unused CSS (base.css, global.css, etc.)
+3.  **Unified templates**: Reduced from 5 base templates to 2 (`base.html`, `base_app.html`)
+4.  **No inline styles**: All `<style>` blocks and `style=` attributes moved to CSS
+5.  **404 page**: Converted from Tailwind to custom CSS classes
+
 ## Code Conventions
 
 1.  **API Response Format**: Always use `JSONResponse` for `/api/` routes.
@@ -98,9 +105,79 @@
 - `app/main.py`: App init, page routes, error handlers.
 - `app/routers/auth.py`: OAuth flow.
 - `app/routers/chats.py`: Chat logic, message handling.
+- `app/routers/payments.py`: YooKassa payment creation and webhook.
 - `app/services/ai_generation.py`: **Master Config** for models (`AI_MODELS_GROUPS`), generation logic.
 - `app/services/s3.py`: S3 upload logic.
 - `app/models.py`: DB Models (`UserWallet`, `Chat`, `Message`, `Payment`).
+
+---
+
+## 🎨 Frontend Architecture
+
+### CSS Architecture
+**Single unified CSS file**: `app/static/css/styles.css` (~820 lines)
+
+Structure:
+1. **Design Tokens** — CSS variables (colors, spacing, typography)
+2. **Themes** — Dark/Light via `data-theme` attribute
+3. **Reset & Base** — Normalize, scrollbar, selection
+4. **Layout** — `.main-container`, `.minimal-layout`, `.app-layout`
+5. **Components** — Header, Footer, Buttons, Cards, Forms, Modal
+6. **Page styles** — Signin, Profile, Index, 404, Chat
+
+**Rules:**
+- All styles in ONE file — no separate CSS per page
+- Use CSS variables from tokens (e.g., `var(--color-primary)`)
+- BEM-like naming for components (e.g., `.error-page__title`)
+
+### Templates Structure
+```
+templates/
+├── layouts/
+│   ├── base.html          # Main layout (header/footer)
+│   └── base_app.html      # Chat layout (Tailwind + Alpine)
+├── components/
+│   ├── _header.html
+│   └── _footer.html
+├── signin.html
+├── profile.html
+├── index.html
+├── chat.html
+└── 404.html
+```
+
+### Technology Stack by Page
+
+| Page | Layout | CSS | Tailwind | Alpine.js | Extra JS |
+|------|--------|-----|----------|-----------|----------|
+| `/signin` | base.html | styles.css | ❌ | ❌ | signin.js |
+| `/profile` | base.html | styles.css | ❌ | ❌ | profile.js |
+| `/index` | base.html | styles.css | ❌ | ❌ | — |
+| `/404` | base.html | styles.css | ❌ | ❌ | — |
+| `/chat` | base_app.html | styles.css | ✅ CDN | ✅ | chat.js |
+
+### JavaScript Files
+- `theme.js` (37 lines) — Theme toggle, loads on ALL pages
+- `signin.js` (107 lines) — Email auth flow
+- `profile.js` (89 lines) — YooKassa widget init
+- `chat.js` (528 lines) — Full chat UI logic with Alpine.js
+
+**Convention:** Keep JS separate per page. Don't merge into one file.
+
+### Tailwind Usage
+Tailwind CDN is **only** loaded in `base_app.html` (chat page).
+Other pages use custom CSS classes from `styles.css`.
+
+**Reason:** Chat has complex UI (sidebar, modals, responsive). 
+Simple pages don't need 300KB Tailwind overhead.
+
+### Theme System
+```html
+<html data-theme="dark">  <!-- or "light" -->
+```
+CSS variables change based on `data-theme`:
+- `--color-bg`, `--color-text`, `--color-primary`, etc.
+- Toggle via `theme.js` → saves to localStorage
 
 ---
 
@@ -109,13 +186,25 @@
 ### Database Models (app/models.py)
 **DO NOT modify existing columns without migration:**
 ```python
-# UserWallet - PRIMARY user data
+# UserWallet - PRIMARY user data (table: wallets)
 - casdoor_id: String (UNIQUE, format: "{provider}_{user_id}")
+- email, name, avatar, phone: String
 - balance: Float
+
+# UserSession (table: sessions)
+- session_id: String (PRIMARY KEY)
+- token: Text (JSON with user data)
+
+# Payment (table: payments)
+- yookassa_payment_id, user_id, amount, status
+
+# EmailCode (table: email_codes)
+- email, code, created_at
 
 # Chat & Message
 - Chat.model: String (stores model ID from AI_MODELS_GROUPS)
 - Message.image_url: String (S3 URL for generated images)
+- Message.attachment_url: String (user uploaded files)
 ```
 
 ### AI Models Config (app/services/ai_generation.py)
