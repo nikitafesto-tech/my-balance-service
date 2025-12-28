@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import httpx
 from openai import AsyncOpenAI
 
 logger = logging.getLogger(__name__)
@@ -8,10 +9,18 @@ logger = logging.getLogger(__name__)
 # Настройка клиентов
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 FAL_KEY = os.getenv("FAL_KEY")
+AI_PROXY_URL = os.getenv("AI_PROXY_URL")  # HTTP прокси для OpenRouter
+
+# Создаём HTTP-клиент с прокси (только для OpenRouter)
+http_client = None
+if AI_PROXY_URL:
+    http_client = httpx.AsyncClient(proxy=AI_PROXY_URL)
+    logger.info(f"OpenRouter proxy: {AI_PROXY_URL.split('@')[-1] if '@' in AI_PROXY_URL else 'configured'}")
 
 client = AsyncOpenAI(
     base_url="https://openrouter.ai/api/v1",
     api_key=OPENROUTER_API_KEY,
+    http_client=http_client,
 )
 
 if not OPENROUTER_API_KEY:
