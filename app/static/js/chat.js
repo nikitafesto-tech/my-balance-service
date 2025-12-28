@@ -451,11 +451,16 @@ function chatApp() {
         parseMarkdown(text) {
             if (!text) return "";
             
-            // Обработка блоков <think> для reasoning моделей
-            text = text.replace(
-                /<think>([\s\S]*?)<\/think>/g,
-                '<details class="reasoning"><summary>Размышления</summary><div class="reasoning-content">$1</div></details>'
-            );
+            // Обработка блоков <think> (в том числе незакрытых при стриминге)
+            // Если есть открывающий тег, но нет закрывающего - считаем всё до конца "мыслями"
+            if (text.includes('<think>') && !text.includes('</think>')) {
+                text = text.replace('<think>', '<details class="reasoning" open><summary>Размышления</summary><div class="reasoning-content">') + '</div></details>';
+            } else {
+                text = text.replace(
+                    /<think>([\s\S]*?)<\/think>/g,
+                    '<details class="reasoning"><summary>Размышления</summary><div class="reasoning-content">$1</div></details>'
+                );
+            }
             
             let html = marked.parse(text);
             const parser = new DOMParser();
@@ -486,16 +491,22 @@ function chatApp() {
             });
 
             // Рендеринг формул KaTeX
+            // Проверяем наличие функции и пробуем отрендерить
             if (window.renderMathInElement) {
-                renderMathInElement(doc.body, {
-                    delimiters: [
-                        {left: '$$', right: '$$', display: true},
-                        {left: '$', right: '$', display: false},
-                        {left: '\\(', right: '\\)', display: false},
-                        {left: '\\[', right: '\\]', display: true}
-                    ],
-                    throwOnError: false
-                });
+                try {
+                    renderMathInElement(doc.body, {
+                        delimiters: [
+                            {left: '$$', right: '$$', display: true},
+                            {left: '$', right: '$', display: false},
+                            {left: '\\(', right: '\\)', display: false},
+                            {left: '\\[', right: '\\]', display: true}
+                        ],
+                        throwOnError: false,
+                        errorColor: '#cc0000'
+                    });
+                } catch (e) {
+                    console.warn("KaTeX render error:", e);
+                }
             }
             
             return doc.body.innerHTML;
