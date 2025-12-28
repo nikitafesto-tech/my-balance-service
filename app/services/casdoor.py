@@ -8,8 +8,8 @@ logger.setLevel(logging.INFO)
 
 CASDOOR_CLIENT_ID = os.getenv("CASDOOR_CLIENT_ID")
 CASDOOR_CLIENT_SECRET = os.getenv("CASDOOR_CLIENT_SECRET")
-# Внутри Docker сети используем имя сервиса
-CASDOOR_INTERNAL_URL = "http://casdoor:8000"
+# Внутри Docker сети используем имя сервиса, но позволяем переопределить через ENV
+CASDOOR_INTERNAL_URL = os.getenv("CASDOOR_INTERNAL_URL", "http://casdoor:8000")
 
 # ОРГАНИЗАЦИЯ: "users" или "built-in".
 CASDOOR_ORGANIZATION = "users" 
