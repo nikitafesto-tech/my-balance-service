@@ -264,7 +264,17 @@ function chatApp() {
         },
         
         async regenerate() {
-            if (!this.lastUserMessage || this.isTyping) return;
+            if (this.isTyping) return;
+            
+            // Если lastUserMessage пуст (например, после перезагрузки), ищем последнее сообщение пользователя
+            if (!this.lastUserMessage) {
+                const lastUserMsg = this.messages.slice().reverse().find(m => m.role === 'user');
+                if (lastUserMsg) {
+                    this.lastUserMessage = lastUserMsg.content;
+                } else {
+                    return;
+                }
+            }
             
             // Удаляем последний ответ ассистента
             if (this.messages.length > 0 && this.messages[this.messages.length - 1].role === 'assistant') {
