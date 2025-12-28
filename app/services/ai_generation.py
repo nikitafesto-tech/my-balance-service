@@ -11,23 +11,10 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 FAL_KEY = os.getenv("FAL_KEY")
 AI_PROXY_URL = os.getenv("AI_PROXY_URL")  # Например: "http://user:pass@proxy:8080"
 
-# Логируем состояние при запуске
-print("--- AI SERVICE STARTUP ---")
-print(f"DEBUG: OpenRouter Key present: {bool(OPENROUTER_API_KEY)}")
-print(f"DEBUG: Proxy URL present: {bool(AI_PROXY_URL)}")
-if AI_PROXY_URL:
-    safe_proxy = AI_PROXY_URL.split('@')[-1] if '@' in AI_PROXY_URL else 'CONFIGURED'
-    print(f"DEBUG: Proxy Address: {safe_proxy}")
-print("--------------------------")
-
-# Настройка прокси для Fal.ai (системные переменные)
-if AI_PROXY_URL:
-    os.environ["HTTP_PROXY"] = AI_PROXY_URL
-    os.environ["HTTPS_PROXY"] = AI_PROXY_URL
-
-# Создаём HTTP-клиент с прокси если задан
+# Создаём HTTP-клиент с прокси для OpenRouter (только для AI запросов!)
 http_client = None
 if AI_PROXY_URL:
+    safe_proxy = AI_PROXY_URL.split('@')[-1] if '@' in AI_PROXY_URL else 'configured'
     http_client = httpx.AsyncClient(
         proxies={
             "http://": AI_PROXY_URL,
@@ -35,7 +22,7 @@ if AI_PROXY_URL:
         },
         verify=False  # Отключаем проверку SSL для прокси
     )
-    logger.info(f"AI proxy enabled: {safe_proxy}")
+    logger.info(f"OpenRouter proxy enabled: {safe_proxy}")
 
 client = AsyncOpenAI(
     base_url="https://openrouter.ai/api/v1",
