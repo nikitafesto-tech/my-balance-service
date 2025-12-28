@@ -43,6 +43,7 @@ function chatApp() {
         chatHistory: [],
         messages: [],
         replyContext: null,
+        chatSearch: '',  // Поиск по чатам
         
         // Settings
         temperature: 0.7,
@@ -50,6 +51,15 @@ function chatApp() {
         
         // User Data (из data-атрибутов)
         balance: 0,
+
+        // Computed: фильтрация чатов по поиску
+        get filteredChats() {
+            if (!this.chatSearch.trim()) return this.chatHistory;
+            const query = this.chatSearch.toLowerCase();
+            return this.chatHistory.filter(chat => 
+                chat.title.toLowerCase().includes(query)
+            );
+        },
 
         // Computed
         get canVision() { 
@@ -153,6 +163,24 @@ function chatApp() {
             this.attachedFileUrl = null;
             this.replyContext = null;
             this.$nextTick(() => this.$refs.chatInput.focus());
+        },
+        
+        async deleteChat(chatId) {
+            if (!confirm('Удалить этот чат?')) return;
+            
+            try {
+                const res = await fetch(`/api/chats/${chatId}`, { method: 'DELETE' });
+                if (res.ok) {
+                    // Убираем из списка
+                    this.chatHistory = this.chatHistory.filter(c => c.id !== chatId);
+                    // Если удалили активный чат — очищаем
+                    if (this.activeChatId === chatId) {
+                        this.startNewChat();
+                    }
+                }
+            } catch (e) {
+                console.error("Delete failed", e);
+            }
         },
         
         copyToClipboard(text) {

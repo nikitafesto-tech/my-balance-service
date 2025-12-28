@@ -30,6 +30,22 @@ def get_chats(request: Request, db: Session = Depends(get_db)):
     chats = db.query(Chat).filter_by(user_casdoor_id=user.casdoor_id).order_by(desc(Chat.updated_at)).all()
     return [{"id": c.id, "title": c.title, "date": c.updated_at.isoformat()} for c in chats]
 
+@router.delete("/{chat_id}")
+def delete_chat(chat_id: int, request: Request, db: Session = Depends(get_db)):
+    """Удаление чата и всех его сообщений"""
+    user = get_current_user(request, db)
+    if not user: raise HTTPException(401)
+    chat = db.query(Chat).filter_by(id=chat_id, user_casdoor_id=user.casdoor_id).first()
+    if not chat: raise HTTPException(404, "Chat not found")
+    
+    # Удаляем все сообщения чата
+    db.query(Message).filter_by(chat_id=chat_id).delete()
+    # Удаляем сам чат
+    db.delete(chat)
+    db.commit()
+    
+    return {"success": True, "message": "Chat deleted"}
+
 @router.get("/{chat_id}")
 def get_chat_history(chat_id: int, request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
@@ -69,7 +85,7 @@ async def handle_chat_request(request: Request, data: dict, db: Session, is_new=
 
     user_text = data.get("message", "")
     model = data.get("model", "openai/gpt-4o") # Дефолтная модель
-    temp = data.get("temperature", 0.7)
+    temp = data.get("temperature", 0.5)
     web = data.get("web_search", False)
     attach = data.get("attachment_url")
 
