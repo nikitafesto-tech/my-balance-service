@@ -46,6 +46,22 @@ def delete_chat(chat_id: int, request: Request, db: Session = Depends(get_db)):
     
     return {"success": True, "message": "Chat deleted"}
 
+@router.patch("/{chat_id}")
+def rename_chat(chat_id: int, request: Request, data: dict = Body(...), db: Session = Depends(get_db)):
+    """Переименование чата"""
+    user = get_current_user(request, db)
+    if not user: raise HTTPException(401)
+    chat = db.query(Chat).filter_by(id=chat_id, user_casdoor_id=user.casdoor_id).first()
+    if not chat: raise HTTPException(404, "Chat not found")
+    
+    new_title = data.get("title", "").strip()
+    if not new_title: raise HTTPException(400, "Title cannot be empty")
+    
+    chat.title = new_title[:50]  # Лимит 50 символов
+    db.commit()
+    
+    return {"success": True, "title": chat.title}
+
 @router.get("/{chat_id}")
 def get_chat_history(chat_id: int, request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)

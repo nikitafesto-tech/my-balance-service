@@ -183,6 +183,26 @@ function chatApp() {
             }
         },
         
+        async renameChat(chatId, newTitle) {
+            if (!newTitle.trim()) return;
+            
+            try {
+                const res = await fetch(`/api/chats/${chatId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: newTitle })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    // Обновляем название в списке
+                    const chat = this.chatHistory.find(c => c.id === chatId);
+                    if (chat) chat.title = data.title;
+                }
+            } catch (e) {
+                console.error("Rename failed", e);
+            }
+        },
+        
         copyToClipboard(text) {
             navigator.clipboard.writeText(text);
         },
