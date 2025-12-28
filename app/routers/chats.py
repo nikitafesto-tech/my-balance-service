@@ -6,7 +6,7 @@ from datetime import datetime
 import json
 import logging
 
-from app.database import get_db
+from app.database import get_db, SessionLocal
 from app.models import UserWallet, Chat, Message
 from app.dependencies import get_current_user
 # Импортируем get_models_config из нашего нового единого источника
@@ -139,12 +139,13 @@ async def handle_chat_request(request: Request, data: dict, db: Session, is_new=
 
     if is_media:
         try:
-            reply_text, cost = await generate_ai_response_media(model, messages_payload, user.balance, attach)
+            # cost_rub возвращается сразу из функции (так как мы перешли на рубли)
+            reply_text, cost_rub = await generate_ai_response_media(model, messages_payload, user.balance, attach)
         except Exception as e:
             raise HTTPException(500, f"Generation Error: {e}")
         
-        if cost > 0:
-            user.balance = max(0, user.balance - cost)
+        if cost_rub > 0:
+            user.balance = max(0, user.balance - cost_rub)
             db.add(user)
             db.commit()
             try:
@@ -170,36 +171,52 @@ async def handle_chat_request(request: Request, data: dict, db: Session, is_new=
         }
 
     else:
+        # Capture variables to avoid DetachedInstanceError in async generator
+        current_balance = user.balance
+        current_user_id = user.id
+        current_chat_id = chat.id
+
         async def response_generator():
             full_text = ""
-            total_cost = 0.0
+            total_cost_rub = 0.0
             
-            yield json.dumps({"type": "meta", "chat_id": chat.id}) + "\n"
+            yield json.dumps({"type": "meta", "chat_id": current_chat_id}) + "\n"
 
             try:
                 async for chunk_text, chunk_cost in generate_ai_response_stream(
-                    model, messages_payload, user.balance, temp, web, attach
+                    model, messages_payload, current_balance, temp, web, attach
                 ):
                     full_text += chunk_text
-                    total_cost = chunk_cost
+                    total_cost_rub = chunk_cost
                     yield json.dumps({"type": "content", "text": chunk_text}) + "\n"
                 
-                if total_cost > 0:
-                    user.balance = max(0, user.balance - total_cost)
-                    db.add(user)
-                    db.commit()
-                    try:
-                        await update_casdoor_balance(user.casdoor_id, user.balance)
-                    except Exception as e:
-                        logger.error(f"Failed to sync balance: {e}")
+                # Используем отдельную сессию для финального обновления
+                final_balance = current_balance
+                
+                if total_cost_rub > 0:
+                    with SessionLocal() as db_new:
+                        # Находим пользователя заново в новой сессии
+                        user_new = db_new.query(UserWallet).filter_by(id=current_user_id).first()
+                        if user_new:
+                            user_new.balance = max(0, user_new.balance - total_cost_rub)
+                            db_new.commit()
+                            final_balance = user_new.balance
+                            
+                            # Синхронизация с Casdoor
+                            try:
+                                await update_casdoor_balance(user_new.casdoor_id, user_new.balance)
+                            except Exception as e:
+                                logger.error(f"Failed to sync balance: {e}")
 
-                bot_msg = Message(chat_id=chat.id, role="assistant", content=full_text)
-                db.add(bot_msg)
-                db.commit()
+                        # Сохраняем сообщение бота тоже в новой сессии
+                        bot_msg = Message(chat_id=current_chat_id, role="assistant", content=full_text)
+                        db_new.add(bot_msg)
+                        db_new.commit()
 
-                yield json.dumps({"type": "balance", "balance": float(user.balance)}) + "\n"
+                yield json.dumps({"type": "balance", "balance": float(final_balance)}) + "\n"
                 
             except Exception as e:
+                logger.error(f"Stream Error: {e}")
                 yield json.dumps({"type": "error", "text": str(e)}) + "\n"
 
         return StreamingResponse(response_generator(), media_type="application/x-ndjson")

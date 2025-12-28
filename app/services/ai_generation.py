@@ -274,10 +274,10 @@ async def generate_ai_response_stream(model_id: str, messages: list, user_balanc
                 full_response += content
                 yield content, 0.0
 
-        # Финальный подсчет стоимости
+        # Финальный подсчет стоимости (Цены в РУБЛЯХ за 1000 токенов)
         output_tokens = len(full_response) / 4
-        total_cost = (input_tokens_approx / 1_000_000 * pricing['input']) + \
-                     (output_tokens / 1_000_000 * pricing['output'])
+        total_cost = (input_tokens_approx / 1_000 * pricing['input']) + \
+                     (output_tokens / 1_000 * pricing['output'])
         
         yield "", total_cost
 
