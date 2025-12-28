@@ -39,7 +39,7 @@ if os.path.exists(STATIC_DIR):
 
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
-# === ОБРАБОТЧИК ОШИБОК 404 (НОВОЕ) ===
+# === ОБРАБОТЧИК ОШИБОК 404 (НОВОЕe) ===
 @app.exception_handler(StarletteHTTPException)
 async def custom_http_exception_handler(request: Request, exc: StarletteHTTPException):
     if exc.status_code == 404:
