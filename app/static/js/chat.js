@@ -359,13 +359,15 @@ function chatApp() {
                     const reader = response.body.getReader();
                     const decoder = new TextDecoder();
                     let botText = "";
+                    let buffer = "";
 
                     while (true) {
                         const { done, value } = await reader.read();
                         if (done) break;
                         
-                        const chunk = decoder.decode(value);
-                        const lines = chunk.split('\n');
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop(); // Keep the last partial line in buffer
                         
                         for (const line of lines) {
                             if (!line.trim()) continue;
@@ -472,6 +474,19 @@ function chatApp() {
                 
                 hljs.highlightElement(block);
             });
+
+            // Рендеринг формул KaTeX
+            if (window.renderMathInElement) {
+                renderMathInElement(doc.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\(', right: '\\)', display: false},
+                        {left: '\\[', right: '\\]', display: true}
+                    ],
+                    throwOnError: false
+                });
+            }
             
             return doc.body.innerHTML;
         },
@@ -479,7 +494,13 @@ function chatApp() {
         scrollToBottom() {
             this.$nextTick(() => {
                 const el = document.getElementById('chat-container');
-                if (el) el.scrollTop = el.scrollHeight;
+                if (el) {
+                    // Умный скролл: скроллим только если пользователь внизу или чат только начался
+                    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+                    if (isAtBottom || this.messages.length <= 2) {
+                        el.scrollTop = el.scrollHeight;
+                    }
+                }
             });
         }
     };

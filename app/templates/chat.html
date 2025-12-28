@@ -158,13 +158,27 @@
                             </template>
                         </div>
 
-                        <div class="flex items-center gap-4 mt-2 px-1 text-xs text-gray-500 opacity-80 hover:opacity-100 transition-opacity">
-                            <button @click="copyToClipboard(msg.content)" class="hover:text-white flex items-center gap-1 transition-colors">
-                                <i class="ph ph-copy"></i> Копировать
+                        <!-- Message Actions -->
+                        <div class="flex items-center gap-3 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 px-2 select-none">
+                            <button @click="copyToClipboard(msg.content)" class="text-gray-500 hover:text-white text-xs flex items-center gap-1 transition-colors" title="Копировать">
+                                <i class="ph ph-copy"></i>
                             </button>
-                            <button @click="replyToMessage(msg)" class="hover:text-white flex items-center gap-1 transition-colors">
-                                <i class="ph ph-arrow-u-up-left"></i> Цитировать
+                            
+                            <button @click="replyToMessage(msg)" class="text-gray-500 hover:text-white text-xs flex items-center gap-1 transition-colors" title="Цитировать">
+                                <i class="ph ph-arrow-u-up-left"></i>
                             </button>
+
+                            <template x-if="msg.role === 'user'">
+                                <button @click="userInput = msg.content; $refs.chatInput.focus()" class="text-gray-500 hover:text-white text-xs flex items-center gap-1 transition-colors" title="Редактировать">
+                                    <i class="ph ph-pencil-simple"></i>
+                                </button>
+                            </template>
+
+                            <template x-if="msg.role === 'assistant' && !msg.isStreaming">
+                                <button @click="regenerate()" class="text-gray-500 hover:text-white text-xs flex items-center gap-1 transition-colors" title="Перегенерировать">
+                                    <i class="ph ph-arrows-clockwise"></i>
+                                </button>
+                            </template>
                         </div>
                     </div>
                 </div>
