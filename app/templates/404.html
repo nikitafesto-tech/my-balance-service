@@ -1,37 +1,29 @@
-{% extends "layouts/base_minimal.html" %}
+{% extends "layouts/base.html" %}
+{% set minimal = true %}
 
 {% block title %}404 — Страница не найдена{% endblock %}
 
-{% block styles %}
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="https://unpkg.com/@phosphor-icons/web"></script>
-<style>
-    .glow-text { text-shadow: 0 0 20px rgba(34, 197, 94, 0.5); }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="text-center relative">
-    {# Background blurs #}
-    <div class="absolute -top-32 -left-32 w-64 h-64 bg-green-500/10 rounded-full blur-3xl pointer-events-none"></div>
-    <div class="absolute -bottom-32 -right-32 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl pointer-events-none"></div>
+<div class="error-page">
+    <div class="error-page__blur-1"></div>
+    <div class="error-page__blur-2"></div>
 
-    <div class="relative z-10 max-w-md mx-auto">
-        <div class="mb-6 flex justify-center">
-            <i class="ph ph-robot text-8xl text-gray-700 animate-bounce"></i>
-        </div>
+    <div class="error-page__content">
+        <div class="error-page__icon">🤖</div>
         
-        <h1 class="text-9xl font-bold text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-600 mb-2">404</h1>
+        <div class="error-page__code">404</div>
         
-        <h2 class="text-2xl font-semibold mb-4">Страница не найдена</h2>
+        <h2 class="error-page__title">Страница не найдена</h2>
         
-        <p class="text-gray-400 mb-8 leading-relaxed">
+        <p class="error-page__text">
             Похоже, вы зашли в ту часть нейросети, которая еще не сгенерирована. 
             Вернитесь назад, пока мы не начали галлюцинировать.
         </p>
 
-        <a href="/" class="inline-flex items-center gap-2 bg-green-600 hover:bg-green-500 text-white px-6 py-3 rounded-xl transition-all duration-200 font-medium shadow-lg shadow-green-900/20 transform hover:-translate-y-1">
-            <i class="ph ph-arrow-left"></i>
+        <a href="/" class="error-page__btn">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+            </svg>
             Вернуться в чат
         </a>
     </div>

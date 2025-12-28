@@ -11,7 +11,7 @@
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     
     {# Main Styles #}
-    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="/static/css/styles.css">
     
     {# Theme script (early load) #}
     <script src="/static/js/theme.js"></script>
@@ -55,15 +55,6 @@
     
     {# Page-specific styles #}
     {% block styles %}{% endblock %}
-    
-    <style>
-        /* Alpine cloak */
-        [x-cloak] { display: none !important; }
-        
-        /* Full height for app layout */
-        html, body { height: 100%; overflow: hidden; }
-        body { display: flex; flex-direction: column; }
-    </style>
 </head>
 <body class="bg-bg text-text-primary antialiased">
     {% block content %}{% endblock %}

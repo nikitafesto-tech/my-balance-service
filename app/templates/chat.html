@@ -1,9 +1,5 @@
 {% extends "layouts/base_app.html" %}
 
-{% block styles %}
-<link rel="stylesheet" href="/static/css/pages/chat.css">
-{% endblock %}
-
 {% block content %}
 <div x-data="chatApp()" data-balance="{{ balance | default(0) }}" data-user-id="{{ user_id }}" class="flex w-full h-full relative" x-cloak>
 
@@ -206,7 +202,7 @@
                 </div>
 
                 <div class="bg-sidebar border border-white/10 rounded-2xl shadow-lg flex flex-col transition-colors focus-within:border-white/20">
-                    <textarea x-model="userInput" @keydown.enter="if (!$event.shiftKey) { $event.preventDefault(); sendMessage(); }" rows="1" placeholder="Запрос..." class="w-full bg-transparent text-white placeholder-gray-500 px-4 py-4 resize-none outline-none max-h-48 overflow-y-auto" style="min-height: 56px;" x-ref="chatInput" @input="$el.style.height = 'auto'; $el.style.height = $el.scrollHeight + 'px'"></textarea>
+                    <textarea x-model="userInput" @keydown.enter="if (!$event.shiftKey) { $event.preventDefault(); sendMessage(); }" rows="1" placeholder="Запрос..." class="chat-textarea w-full bg-transparent text-white placeholder-gray-500 px-4 py-4 resize-none outline-none max-h-48 overflow-y-auto" x-ref="chatInput" @input="$el.style.height = 'auto'; $el.style.height = $el.scrollHeight + 'px'"></textarea>
 
                     <div class="flex items-center justify-between px-3 pb-3 pt-1">
                         <div class="flex items-center gap-2">
