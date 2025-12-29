@@ -80,7 +80,10 @@
     <main class="flex-1 flex flex-col relative min-w-0 bg-dark">
         <header class="h-14 flex items-center justify-between px-4 border-b border-white/5 flex-shrink-0 md:hidden">
             <button @click="sidebarOpen = true" class="p-2 text-gray-400 hover:text-white"><i class="ph ph-list text-2xl"></i></button>
-            <span class="font-semibold text-sm">Neirosetim AI</span>
+            <picture>
+                <source srcset="/static/media/logo-mobile.svg" media="(max-width: 600px)">
+                <img src="/static/media/logo-desktop.svg" alt="Neirosetim logo" style="height:40px; width:auto; display:inline-block; vertical-align:middle;">
+            </picture>
             <div class="w-8"></div>
         </header>
 
