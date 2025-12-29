@@ -12,8 +12,10 @@
     >
         <div class="p-4 flex items-center justify-between">
             <a href="/" class="flex items-center gap-2 font-bold text-xl tracking-tight">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M12 2L2 7l10 5 10-5-10-5zm0 9l2.5-1.25L12 8.5l-2.5 1.25L12 11zm0 2.5l-5-2.5-5 2.5L12 22l10-8.5-5-2.5-5 2.5z"/></svg>
-                <span>Neirosetim</span>
+                <picture>
+                    <source srcset="/static/media/logo-mobile.svg" media="(max-width: 600px)">
+                    <img src="/static/media/logo-desktop.svg" alt="Neirosetim logo" style="height:40px; width:auto; display:inline-block; vertical-align:middle;">
+                </picture>
             </a>
             <button @click="sidebarOpen = false" class="md:hidden text-gray-400 hover:text-white">
                 <i class="ph ph-x text-2xl"></i>
