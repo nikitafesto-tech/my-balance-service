@@ -1,78 +1,83 @@
 {% extends "layouts/base.html" %}
-{% set minimal = true %}
 
 {% block title %}Вход — Neirosetim{% endblock %}
 
 {% block content %}
-<div class="login-card">
-    <div id="social-login-block">
-        <h2>Вход в Neirosetim</h2>
-        <p class="subtitle">Выберите способ авторизации</p>
+<div class="min-h-screen flex items-center justify-center p-4">
+    <div class="login-card w-full max-w-md mx-auto">
+        <div id="social-login-block">
+            <h2 class="text-2xl font-bold mb-2">Вход в Neirosetim</h2>
+            <p class="text-text-muted mb-8 text-sm">Выберите способ авторизации</p>
 
-        <a href="/login/yandex-direct" class="btn btn-yandex">
-            <svg width="28" height="28" viewBox="0 0 44 44" fill="none"><rect width="44" height="44" rx="22" fill="#FC3F1D"></rect><path d="M25.2438 12.3208H23.0173C19.2005 12.3208 17.292 14.2292 17.292 17.0919C17.292 20.2726 18.5643 21.863 21.427 23.7714L23.6535 25.3618L17.292 35.222H12.2029L18.2463 26.316C14.7475 23.7714 12.839 21.5449 12.839 17.41C12.839 12.3208 16.3378 8.82202 23.0173 8.82202H29.6969V35.222H25.2438V12.3208Z" fill="white"></path></svg>
-            Войти через Яндекс
-        </a>
+            <a href="/login/yandex-direct" class="btn w-full flex items-center justify-center gap-3 p-4 bg-bg-elevated hover:bg-bg-hover rounded-xl text-lg font-semibold transition-all mb-6 text-text-primary">
+                <svg width="28" height="28" viewBox="0 0 44 44" fill="none"><rect width="44" height="44" rx="22" fill="#FC3F1D"></rect><path d="M25.2438 12.3208H23.0173C19.2005 12.3208 17.292 14.2292 17.292 17.0919C17.292 20.2726 18.5643 21.863 21.427 23.7714L23.6535 25.3618L17.292 35.222H12.2029L18.2463 26.316C14.7475 23.7714 12.839 21.5449 12.839 17.41C12.839 12.3208 16.3378 8.82202 23.0173 8.82202H29.6969V35.222H25.2438V12.3208Z" fill="white"></path></svg>
+                Войти через Яндекс
+            </a>
 
-        <div class="social-row">
-            <a href="/login/google-direct" class="social-icon" title="Google">
-                <svg width="28" height="28" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-            </a>
-            <a href="/login/vk-direct" class="social-icon social-icon--vk" title="ВКонтакте">
-                <svg xmlns="http://www.w3.org/2000/svg" height="28" width="28" viewBox="0 0 48 48"><path d="M0 23.04C0 12.1788 0 6.74826 3.37413 3.37413C6.74826 0 12.1788 0 23.04 0H24.96C35.8212 0 41.2517 0 44.6259 3.37413C48 6.74826 48 12.1788 48 23.04V24.96C48 35.8212 48 41.2517 44.6259 44.6259C41.2517 48 35.8212 48 24.96 48H23.04C12.1788 48 6.74826 48 3.37413 44.6259C0 41.2517 0 35.8212 0 24.96V23.04Z" fill="#0077FF"></path><path d="M25.54 34.5801C14.6 34.5801 8.3601 27.0801 8.1001 14.6001H13.5801C13.7601 23.7601 17.8 27.6401 21 28.4401V14.6001H26.1602V22.5001C29.3202 22.1601 32.6398 18.5601 33.7598 14.6001H38.9199C38.0599 19.4801 34.4599 23.0801 31.8999 24.5601C34.4599 25.7601 38.5601 28.9001 40.1201 34.5801H34.4399C33.2199 30.7801 30.1802 27.8401 26.1602 27.4401V34.5801H25.54Z" fill="#ffffff"></path></svg>
-            </a>
-            
-            <div class="social-icon social-icon--telegram">
-                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="white"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.161c-.18 1.897-.962 6.502-1.359 8.627-.168.9-.5 1.201-.82 1.23-.697.064-1.226-.461-1.901-.903-1.056-.692-1.653-1.123-2.678-1.799-1.185-.781-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.139-5.062 3.345-.479.329-.913.489-1.302.481-.428-.008-1.252-.241-1.865-.44-.751-.244-1.349-.374-1.297-.789.027-.216.324-.437.893-.663 3.498-1.524 5.831-2.529 6.998-3.014 3.333-1.386 4.025-1.627 4.477-1.635.1 0 .32.02.47.14.12.1.17.28.17.43z"/></svg>
+            <div class="flex justify-center gap-4 mb-6">
                 
-                <div class="telegram-widget-wrapper">
-                    <script async src="https://telegram.org/js/telegram-widget.js?22" 
-                            data-telegram-login="neirosetim_bot" 
-                            data-size="large" 
-                            data-userpic="false" 
-                            data-radius="0" 
-                            data-auth-url="/callback/telegram" 
-                            data-request-access="write">
-                    </script>
+                <a href="/login/google-direct" class="w-14 h-14 flex items-center justify-center rounded-full bg-bg-elevated hover:translate-y-[-2px] transition-transform" title="Google">
+                    <svg width="28" height="28" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+                </a>
+                
+                <a href="/login/vk-direct" class="w-14 h-14 flex items-center justify-center rounded-full bg-[#0077FF] hover:translate-y-[-2px] transition-transform" title="ВКонтакте">
+                    <svg xmlns="http://www.w3.org/2000/svg" height="28" width="28" viewBox="0 0 48 48"><path d="M0 23.04C0 12.1788 0 6.74826 3.37413 3.37413C6.74826 0 12.1788 0 23.04 0H24.96C35.8212 0 41.2517 0 44.6259 3.37413C48 6.74826 48 12.1788 48 23.04V24.96C48 35.8212 48 41.2517 44.6259 44.6259C41.2517 48 35.8212 48 24.96 48H23.04C12.1788 48 6.74826 48 3.37413 44.6259C0 41.2517 0 35.8212 0 24.96V23.04Z" fill="#0077FF"></path><path d="M25.54 34.5801C14.6 34.5801 8.3601 27.0801 8.1001 14.6001H13.5801C13.7601 23.7601 17.8 27.6401 21 28.4401V14.6001H26.1602V22.5001C29.3202 22.1601 32.6398 18.5601 33.7598 14.6001H38.9199C38.0599 19.4801 34.4599 23.0801 31.8999 24.5601C34.4599 25.7601 38.5601 28.9001 40.1201 34.5801H34.4399C33.2199 30.7801 30.1802 27.8401 26.1602 27.4401V34.5801H25.54Z" fill="#ffffff"></path></svg>
+                </a>
+                
+                <div class="relative w-14 h-14 flex items-center justify-center rounded-full bg-[#2AABEE] hover:translate-y-[-2px] transition-transform overflow-hidden cursor-pointer">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="white"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.161c-.18 1.897-.962 6.502-1.359 8.627-.168.9-.5 1.201-.82 1.23-.697.064-1.226-.461-1.901-.903-1.056-.692-1.653-1.123-2.678-1.799-1.185-.781-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.139-5.062 3.345-.479.329-.913.489-1.302.481-.428-.008-1.252-.241-1.865-.44-.751-.244-1.349-.374-1.297-.789.027-.216.324-.437.893-.663 3.498-1.524 5.831-2.529 6.998-3.014 3.333-1.386 4.025-1.627 4.477-1.635.1 0 .32.02.47.14.12.1.17.28.17.43z"/></svg>
+                    
+                    <div class="absolute inset-0 opacity-0 z-10 scale-[2]">
+                        <script async src="https://telegram.org/js/telegram-widget.js?22" 
+                                data-telegram-login="neirosetim_bot" 
+                                data-size="large" 
+                                data-userpic="false" 
+                                data-radius="0" 
+                                data-auth-url="/callback/telegram" 
+                                data-request-access="write">
+                        </script>
+                    </div>
                 </div>
             </div>
+
+            <div class="flex items-center my-6 text-sm text-text-muted before:flex-1 before:border-t before:border-border before:mr-3 after:flex-1 after:border-t after:border-border after:ml-3">
+                другие способы
+            </div>
+
+            <button onclick="showEmailForm()" class="btn btn--secondary btn--full w-full py-3 flex items-center justify-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+                Через эл.почту
+            </button>
         </div>
 
-        <div class="social-divider">другие способы</div>
+        <div id="email-section" class="hidden text-left">
+            <h2 id="email-title" class="text-2xl font-bold mb-2 text-center text-text-primary">Вход по почте</h2>
+            <p id="email-subtitle" class="text-text-muted mb-8 text-sm text-center">Введите ваш email адрес</p>
+            
+            <div class="form-group mb-4">
+                <label class="form-label text-sm font-medium text-text-secondary mb-1 block">Email</label>
+                <input type="email" id="email-input" class="form-input w-full p-3 bg-bg-tertiary border border-border rounded-lg text-text-primary focus:border-primary outline-none" placeholder="mail@example.com">
+            </div>
+            
+            <div id="code-input-group" class="form-group mb-4 hidden">
+                <label class="form-label text-sm font-medium text-text-secondary mb-1 block">Код из письма</label>
+                <input type="number" id="code-input" class="form-input w-full p-3 bg-bg-tertiary border border-border rounded-lg text-text-primary focus:border-primary outline-none" placeholder="1234">
+            </div>
 
-        <button onclick="showEmailForm()" class="btn btn--secondary btn--full">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
-            Через эл.почту
-        </button>
-    </div>
+            <button id="email-action-btn" class="btn btn--primary btn--full w-full mt-2 py-3 bg-primary text-white rounded-lg hover:bg-green-600 transition-colors" onclick="handleEmailAction()">
+                Получить код
+            </button>
+            
+            <div id="email-error" class="text-danger text-sm mt-3 hidden"></div>
 
-    <div id="email-section">
-        <h2 id="email-title">Вход по почте</h2>
-        <p class="subtitle" id="email-subtitle">Введите ваш email адрес</p>
-        
-        <div class="form-group">
-            <label class="form-label">Email</label>
-            <input type="email" id="email-input" class="form-input" placeholder="mail@example.com">
+            <button class="w-full mt-4 py-2 text-sm text-text-muted hover:text-text-primary transition-colors" onclick="showSocialLogin()">
+                ← Назад к выбору
+            </button>
         </div>
-        
-        <div id="code-input-group" class="form-group">
-            <label class="form-label">Код из письма</label>
-            <input type="number" id="code-input" class="form-input" placeholder="1234">
+
+        <div class="mt-8 text-xs text-text-muted text-center">
+            Нажимая кнопку, вы принимаете <a href="/privacy" class="hover:text-text-primary underline">Пользовательское соглашение</a>
         </div>
-
-        <button id="email-action-btn" class="btn btn--primary btn--full" onclick="handleEmailAction()">
-            Получить код
-        </button>
-        
-        <div id="email-error" class="form-error"></div>
-
-        <button class="back-btn" onclick="showSocialLogin()">
-            ← Назад к выбору
-        </button>
-    </div>
-
-    <div class="footer-links">
-        Нажимая кнопку, вы принимаете <a href="/privacy">Пользовательское соглашение</a>
     </div>
 </div>
 {% endblock %}

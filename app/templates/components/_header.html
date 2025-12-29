@@ -1,37 +1,20 @@
 {# Header Component - подключается через {% include %} #}
 
-<header class="app-header">
-    <a href="/" class="logo">
-        <picture>
-            <source srcset="/static/media/logo-mobile.svg" media="(max-width: 600px)">
-            <img src="/static/media/logo-desktop.svg" alt="Neirosetim logo" style="height:44px; width:auto; display:inline-block; vertical-align:middle;">
-        </picture>
+<header class="h-[var(--header-height)] flex items-center justify-between px-4 border-b border-border bg-bg flex-shrink-0 md:hidden z-30 sticky top-0">
+    
+    <button @click="sidebarOpen = true" class="p-2 -ml-2 text-text-secondary hover:text-text-primary transition-colors">
+        <i class="ph ph-list text-2xl"></i>
+    </button>
+
+    <a href="/" class="flex items-center">
+        <img src="/static/media/logo-mobile.svg" alt="Logo" class="h-8 w-auto">
     </a>
 
-    <div class="user-menu">
-        {# Theme Toggle #}
-        <button class="theme-toggle" onclick="toggleTheme()" title="Сменить тему" aria-label="Переключить тему">
-            <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
-            </svg>
-            <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
-            </svg>
-        </button>
-        
-        {# Balance #}
-        <a href="/profile" class="balance-badge">{{ balance }} ₽</a>
-
-        {# Profile #}
-        <a href="/profile" class="profile-trigger">
-            <div class="user-info">
-                <div class="user-name">{{ name }}</div>
-            </div>
-            {% if avatar %}
-                <img src="{{ avatar }}" class="avatar-circle" alt="Avatar">
-            {% else %}
-                <div class="avatar-circle avatar-circle--emoji">👤</div>
-            {% endif %}
-        </a>
-    </div>
+    <a href="/profile" class="w-8 h-8 rounded-full bg-bg-elevated flex items-center justify-center overflow-hidden border border-border">
+        {% if avatar %}
+            <img src="{{ avatar }}" class="w-full h-full object-cover">
+        {% else %}
+            <span class="text-xs">👤</span>
+        {% endif %}
+    </a>
 </header>

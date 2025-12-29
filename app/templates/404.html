@@ -1,30 +1,29 @@
 {% extends "layouts/base.html" %}
-{% set minimal = true %}
 
 {% block title %}404 — Страница не найдена{% endblock %}
 
 {% block content %}
-<div class="error-page">
-    <div class="error-page__blur-1"></div>
-    <div class="error-page__blur-2"></div>
-
-    <div class="error-page__content">
-        <div class="error-page__icon">🤖</div>
+<div class="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+    
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-primary/10 rounded-full blur-3xl -z-10"></div>
+    
+    <div class="text-center max-w-lg relative z-10">
+        <div class="text-8xl mb-6 animate-bounce">🤖</div>
         
-        <div class="error-page__code">404</div>
+        <div class="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-500 mb-4 font-mono">
+            404
+        </div>
         
-        <h2 class="error-page__title">Страница не найдена</h2>
+        <h2 class="text-2xl font-bold mb-4 text-text-primary">Страница не найдена</h2>
         
-        <p class="error-page__text">
+        <p class="text-text-secondary mb-8 leading-relaxed">
             Похоже, вы зашли в ту часть нейросети, которая еще не сгенерирована. 
             Вернитесь назад, пока мы не начали галлюцинировать.
         </p>
 
-        <a href="/" class="error-page__btn">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
-            </svg>
-            Вернуться в чат
+        <a href="/" class="btn inline-flex items-center gap-2 bg-primary hover:bg-green-600 text-white px-6 py-3 rounded-xl transition-all shadow-lg hover:shadow-green-500/20">
+            <i class="ph ph-arrow-left text-xl"></i>
+            <span>Вернуться в чат</span>
         </a>
     </div>
 </div>

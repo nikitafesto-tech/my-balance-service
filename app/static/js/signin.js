@@ -1,36 +1,55 @@
 /**
- * Signin Page Logic
- * Логика страницы входа (email авторизация)
+ * Signin Page Logic (Tailwind Compatible)
+ * Логика страницы входа с переключением классов visibility
  */
 
 let step = 1; // 1 = ввод email, 2 = ввод кода
 
+// Вспомогательные функции для работы с Tailwind
+function show(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('hidden');
+}
+
+function hide(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('hidden');
+}
+
 function showEmailForm() {
-    document.getElementById('social-login-block').style.display = 'none';
-    document.getElementById('email-section').style.display = 'block';
+    hide('social-login-block');
+    show('email-section');
     document.getElementById('email-input').focus();
 }
 
 function showSocialLogin() {
-    document.getElementById('email-section').style.display = 'none';
-    document.getElementById('social-login-block').style.display = 'block';
+    hide('email-section');
+    show('social-login-block');
     resetEmailForm();
 }
 
 function resetEmailForm() {
     step = 1;
-    document.getElementById('code-input-group').style.display = 'none';
-    document.getElementById('email-input').disabled = false;
-    document.getElementById('email-action-btn').innerText = "Получить код";
+    hide('code-input-group');
+    
+    const emailInput = document.getElementById('email-input');
+    emailInput.disabled = false;
+    
+    const btn = document.getElementById('email-action-btn');
+    btn.innerText = "Получить код";
+    btn.disabled = false;
+    
     document.getElementById('email-title').innerText = "Вход по почте";
     document.getElementById('email-subtitle').innerText = "Введите ваш email адрес";
-    document.getElementById('email-error').innerText = "";
-    document.getElementById('email-error').style.display = 'none';
+    
+    const errorDiv = document.getElementById('email-error');
+    errorDiv.innerText = "";
+    hide('email-error');
 }
 
 async function handleEmailAction() {
-    const email = document.getElementById('email-input').value;
-    const errorDiv = document.getElementById('email-error');
+    const emailInput = document.getElementById('email-input');
+    const email = emailInput.value;
     const btn = document.getElementById('email-action-btn');
 
     if (!email.includes('@')) {
@@ -38,12 +57,14 @@ async function handleEmailAction() {
         return;
     }
 
-    errorDiv.style.display = 'none';
+    hide('email-error');
     btn.disabled = true;
 
     if (step === 1) {
         // ШАГ 1: Отправляем код
+        const originalText = btn.innerText;
         btn.innerText = "Отправка...";
+        
         try {
             const res = await fetch('/auth/email/request-code', {
                 method: 'POST',
@@ -56,22 +77,25 @@ async function handleEmailAction() {
 
             // Успех, переходим к шагу 2
             step = 2;
-            document.getElementById('code-input-group').style.display = 'block';
-            document.getElementById('email-input').disabled = true;
-            document.getElementById('email-action-btn').innerText = "Войти";
+            show('code-input-group');
+            emailInput.disabled = true;
+            btn.innerText = "Войти";
+            
             document.getElementById('email-title').innerText = "Введите код";
             document.getElementById('email-subtitle').innerText = "Мы отправили код на вашу почту";
             document.getElementById('code-input').focus();
 
         } catch (e) {
             showError(e.message || "Ошибка сервера");
+            btn.innerText = originalText;
         } finally {
             btn.disabled = false;
-            if (step === 1) btn.innerText = "Получить код";
         }
     } else {
         // ШАГ 2: Проверяем код
-        const code = document.getElementById('code-input').value;
+        const codeInput = document.getElementById('code-input');
+        const code = codeInput.value;
+        
         if (code.length < 4) {
             showError("Введите полный код");
             btn.disabled = false;
@@ -103,5 +127,5 @@ async function handleEmailAction() {
 function showError(msg) {
     const el = document.getElementById('email-error');
     el.innerText = msg;
-    el.style.display = 'block';
+    show('email-error');
 }

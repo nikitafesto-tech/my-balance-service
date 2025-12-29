@@ -1,49 +1,38 @@
-{% extends "layouts/base.html" %}
+{% extends "layouts/base_app.html" %}
 
 {% block title %}Главная — Neirosetim{% endblock %}
 
-{% block content %}
-<div class="hero-section">
-    <div class="hero-title">Добро пожаловать в Neirosetim</div>
-    <div class="hero-subtitle">
-        Всё, что нужно знать о сервисе, теперь можно посмотреть в одном месте.
-        Выберите инструмент для начала работы.
-    </div>
-</div>
+{# МЕНЯЕМ content НА app_content #}
+{% block app_content %}
+<div class="h-full overflow-y-auto p-4 md:p-8">
+    <div class="max-w-4xl mx-auto">
+        <div class="text-center py-12 mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-text-primary to-text-secondary">
+                Добро пожаловать в Neirosetim
+            </h1>
+            <p class="text-lg text-text-secondary max-w-2xl mx-auto">
+                Всё, что нужно знать о сервисе, теперь можно посмотреть в одном месте.
+            </p>
+        </div>
 
-<div class="services-grid">
-    
-    <div class="service-card bg-gradient-1" onclick="alert('Переход к Suno...')">
-        <div>
-            <div class="card-icon">🎵</div>
-            <div class="card-title">Suno</div>
-            <div class="card-desc">Создавай музыку с помощью искусственного интеллекта.</div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6">
+            <div class="service-card group hover:-translate-y-1 transition-transform duration-300 bg-bg-secondary border border-border rounded-2xl p-8 cursor-pointer relative overflow-hidden" onclick="alert('Suno...')">
+                <div class="text-4xl mb-4">🎵</div>
+                <div class="text-xl font-bold mb-2 text-text-primary">Suno</div>
+            </div>
+            <div class="service-card group hover:-translate-y-1 transition-transform duration-300 bg-bg-secondary border border-border rounded-2xl p-8 cursor-pointer relative overflow-hidden" onclick="alert('Claude...')">
+                <div class="text-4xl mb-4">🧠</div>
+                <div class="text-xl font-bold mb-2 text-text-primary">Claude</div>
+            </div>
+             <div class="service-card group hover:-translate-y-1 transition-transform duration-300 bg-bg-secondary border border-border rounded-2xl p-8 cursor-pointer relative overflow-hidden" onclick="alert('Sora...')">
+                <div class="text-4xl mb-4">🎬</div>
+                <div class="text-xl font-bold mb-2 text-text-primary">Sora</div>
+            </div>
+             <div class="service-card group hover:-translate-y-1 transition-transform duration-300 bg-bg-secondary border border-border rounded-2xl p-8 cursor-pointer relative overflow-hidden" onclick="alert('OpenAI...')">
+                <div class="text-4xl mb-4">🤖</div>
+                <div class="text-xl font-bold mb-2 text-text-primary">OpenAI</div>
+            </div>
         </div>
     </div>
-
-    <div class="service-card bg-gradient-1" onclick="alert('Переход к Claude...')">
-        <div>
-            <div class="card-icon">🧠</div>
-            <div class="card-title">Claude</div>
-            <div class="card-desc">Новейшая языковая модель от Anthropic. Opus-4.5.</div>
-        </div>
-    </div>
-
-    <div class="service-card bg-gradient-1" onclick="alert('Переход к Sora...')">
-        <div>
-            <div class="card-icon">🎬</div>
-            <div class="card-title">Sora</div>
-            <div class="card-desc">Генерация видео кинематографического качества.</div>
-        </div>
-    </div>
-
-    <div class="service-card bg-gradient-1" onclick="alert('Переход к OpenAI...')">
-        <div>
-            <div class="card-icon">🤖</div>
-            <div class="card-title">OpenAI</div>
-            <div class="card-desc">GPT-5.2 — Самая продвинутая модель с поддержкой зрения.</div>
-        </div>
-    </div>
-
 </div>
 {% endblock %}

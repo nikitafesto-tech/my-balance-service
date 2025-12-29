@@ -1,300 +1,196 @@
 {% extends "layouts/base_app.html" %}
 
-{% block content %}
-<div x-data="chatApp()" data-balance="{{ balance | default(0) }}" data-user-id="{{ user_id }}" class="flex w-full h-full relative" x-cloak>
+{# ВАЖНО: Используем app_content #}
+{% block app_content %}
 
-    <!-- Toast уведомления -->
-    <div x-show="toast.show" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg shadow-lg text-sm font-medium" :class="toast.type === 'success' ? 'bg-green text-black' : 'bg-red-500 text-white'" x-text="toast.message"></div>
+<div x-data="chatApp()" 
+     data-balance="{{ balance | default(0) }}" 
+     data-user-id="{{ user_id }}" 
+     class="flex flex-col h-full w-full relative" 
+     x-cloak>
 
-    <aside 
-        class="flex flex-col w-72 h-full bg-sidebar border-r border-white/5 z-40 transition-transform duration-300 absolute md:relative"
-        :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'"
-    >
-        <div class="p-4 flex items-center justify-between">
-            <a href="/" class="flex items-center gap-2 font-bold text-xl tracking-tight">
-                <picture>
-                    <source srcset="/static/media/logo-mobile.svg" media="(max-width: 600px)">
-                    <img src="/static/media/logo-desktop.svg" alt="Neirosetim logo" style="height:40px; width:auto; display:inline-block; vertical-align:middle;">
-                </picture>
-            </a>
-            <button @click="sidebarOpen = false" class="md:hidden text-gray-400 hover:text-white">
-                <i class="ph ph-x text-2xl"></i>
-            </button>
-        </div>
+    <div x-show="toast.show" 
+         x-transition:enter="transition ease-out duration-300" 
+         x-transition:enter-start="opacity-0 translate-y-2" 
+         x-transition:enter-end="opacity-100 translate-y-0" 
+         x-transition:leave="transition ease-in duration-200" 
+         x-transition:leave-start="opacity-100" 
+         x-transition:leave-end="opacity-0" 
+         class="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg shadow-lg text-sm font-medium border border-white/10" 
+         :class="toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-500 text-white'" 
+         x-text="toast.message">
+    </div>
 
-        <div class="px-4 mb-4 space-y-3">
-            <button @click="startNewChat()" class="w-full flex items-center gap-3 px-4 py-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors border border-white/5 text-sm font-medium">
-                <i class="ph ph-plus text-lg"></i>
-                Новый чат
-            </button>
-            <div class="relative">
-                <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"></i>
-                <input type="text" x-model="chatSearch" placeholder="Поиск по чатам..." class="w-full bg-white/5 border border-white/5 rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-white/20 transition">
+    <div class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 custom-scrollbar scroll-smooth" id="chat-container">
+        
+        <div x-show="messages.length === 0 && !activeChatId" class="h-full flex flex-col items-center justify-center text-center animate-[fadeIn_0.5s_ease-out]">
+            <div class="w-16 h-16 bg-bg-elevated rounded-2xl flex items-center justify-center mb-6 border border-border shadow-lg">
+                <div class="w-10 h-10 fill-text-primary opacity-80" x-html="getCurrentGroupIcon()"></div>
             </div>
-        </div>
-
-        <div class="flex-1 overflow-y-auto px-2 space-y-1">
-            <div class="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">История</div>
-            <template x-for="chat in filteredChats" :key="chat.id">
-                <div class="group relative" x-data="{ editing: false, editTitle: '' }">
-                    <!-- Режим редактирования -->
-                    <div x-show="editing" class="px-3 py-2">
-                        <input type="text" x-model="editTitle" 
-                               @keydown.enter="renameChat(chat.id, editTitle); editing = false"
-                               @keydown.escape="editing = false"
-                               @blur="editing = false"
-                               x-ref="editInput"
-                               class="w-full bg-white/10 border border-white/20 rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:border-green">
+            <h2 class="text-2xl font-bold mb-2">Чем могу помочь?</h2>
+            <div class="text-text-muted max-w-md mb-8 flex items-center justify-center gap-2">
+                <span>Модель:</span>
+                <span class="text-primary font-bold" x-text="currentModelName"></span>
+            </div>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl w-full px-4">
+                <button @click="userInput = 'Напиши код на Python для...'; $refs.chatInput.focus()" class="text-left p-4 bg-bg-secondary hover:bg-bg-elevated rounded-xl border border-border transition-all group shadow-sm hover:shadow-md">
+                    <div class="flex items-center gap-2 text-text-secondary group-hover:text-text-primary mb-1">
+                        <i class="ph ph-code text-lg"></i>
+                        <span class="text-sm font-medium">Написать код</span>
                     </div>
-                    <!-- Обычный режим -->
-                    <button x-show="!editing" @click="loadChat(chat.id)" @dblclick.stop="editing = true; editTitle = chat.title; $nextTick(() => $refs.editInput.focus())" class="w-full text-left flex items-center gap-3 px-3 py-3 rounded-lg transition" :class="activeChatId === chat.id ? 'bg-white/10 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'">
-                        <i class="ph ph-chat-circle text-lg"></i>
-                        <div class="flex-1 truncate text-sm" x-text="chat.title"></div>
-                    </button>
-                    <button x-show="!editing" @click.stop="deleteChat(chat.id)" class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg opacity-0 group-hover:opacity-100 transition-all" title="Удалить чат">
-                        <i class="ph ph-trash text-sm"></i>
-                    </button>
-                </div>
-            </template>
-            <div x-show="filteredChats.length === 0 && chatSearch" class="px-4 py-3 text-sm text-gray-500 text-center">
-                Ничего не найдено
+                    <p class="text-xs text-text-muted">Python, JavaScript, SQL...</p>
+                </button>
+                <button @click="userInput = 'Объясни простыми словами что такое...'; $refs.chatInput.focus()" class="text-left p-4 bg-bg-secondary hover:bg-bg-elevated rounded-xl border border-border transition-all group shadow-sm hover:shadow-md">
+                    <div class="flex items-center gap-2 text-text-secondary group-hover:text-text-primary mb-1">
+                        <i class="ph ph-lightbulb text-lg"></i>
+                        <span class="text-sm font-medium">Объяснить тему</span>
+                    </div>
+                    <p class="text-xs text-text-muted">Простым языком о сложном</p>
+                </button>
             </div>
         </div>
 
-        <div class="p-4 border-t border-white/5">
-            <a href="/profile" class="flex items-center gap-3 hover:bg-white/5 p-2 rounded-xl transition cursor-pointer">
-                {% if avatar %}
-                    <img src="{{ avatar }}" class="w-9 h-9 rounded-full object-cover">
-                {% else %}
-                    <div class="w-9 h-9 rounded-full bg-gray-700 flex items-center justify-center">👤</div>
-                {% endif %}
-                <div class="flex-1 min-w-0">
-                    <div class="text-sm font-medium truncate">{{ name }}</div>
-                    <div class="text-xs text-green" x-text="(balance || 0).toFixed(2) + ' ₽'">{{ balance }} ₽</div>
-                </div>
-                <i class="ph ph-gear text-gray-400"></i>
-            </a>
-        </div>
-    </aside>
-
-    <main class="flex-1 flex flex-col relative min-w-0 bg-dark">
-        <header class="h-14 flex items-center justify-between px-4 border-b border-white/5 flex-shrink-0 md:hidden">
-            <button @click="sidebarOpen = true" class="p-2 text-gray-400 hover:text-white"><i class="ph ph-list text-2xl"></i></button>
-            <picture>
-                <source srcset="/static/media/logo-mobile.svg" media="(max-width: 600px)">
-                <img src="/static/media/logo-desktop.svg" alt="Neirosetim logo" style="height:40px; width:auto; display:inline-block; vertical-align:middle;">
-            </picture>
-            <div class="w-8"></div>
-        </header>
-
-        <div class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6" id="chat-container">
-            <div x-show="messages.length === 0 && !activeChatId" class="h-full flex flex-col items-center justify-center text-center">
-                <div class="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mb-6">
-                    <div class="w-10 h-10 fill-white opacity-80" x-html="getCurrentGroupIcon()"></div>
-                </div>
-                <h2 class="text-2xl font-bold mb-2">Чем могу помочь?</h2>
-                <div class="text-gray-500 max-w-md mb-4 flex items-center justify-center gap-2">
-                    <span>Модель:</span>
-                    <span class="text-green font-bold" x-text="currentModelName"></span>
+        <template x-for="msg in messages" :key="msg.id">
+            <div class="flex gap-4 max-w-4xl mx-auto group" :class="msg.role === 'user' ? 'justify-end' : 'justify-start'">
+                
+                <div x-show="msg.role === 'assistant'" class="w-8 h-8 rounded-full bg-primary flex-shrink-0 flex items-center justify-center mt-1 shadow-md">
+                    <i class="ph ph-robot text-white text-lg"></i>
                 </div>
                 
-                <!-- Примеры запросов -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl w-full px-4">
-                    <button @click="userInput = 'Напиши код на Python для...'; $refs.chatInput.focus()" class="text-left p-4 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition group">
-                        <div class="flex items-center gap-2 text-gray-400 group-hover:text-white mb-1">
-                            <i class="ph ph-code text-lg"></i>
-                            <span class="text-sm font-medium">Написать код</span>
-                        </div>
-                        <p class="text-xs text-gray-500">Python, JavaScript, SQL...</p>
-                    </button>
-                    <button @click="userInput = 'Объясни простыми словами что такое...'; $refs.chatInput.focus()" class="text-left p-4 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition group">
-                        <div class="flex items-center gap-2 text-gray-400 group-hover:text-white mb-1">
-                            <i class="ph ph-lightbulb text-lg"></i>
-                            <span class="text-sm font-medium">Объяснить тему</span>
-                        </div>
-                        <p class="text-xs text-gray-500">Простым языком о сложном</p>
-                    </button>
-                    <button @click="userInput = 'Напиши текст для...'; $refs.chatInput.focus()" class="text-left p-4 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition group">
-                        <div class="flex items-center gap-2 text-gray-400 group-hover:text-white mb-1">
-                            <i class="ph ph-pencil-line text-lg"></i>
-                            <span class="text-sm font-medium">Написать текст</span>
-                        </div>
-                        <p class="text-xs text-gray-500">Статьи, письма, посты</p>
-                    </button>
-                    <button @click="userInput = 'Переведи на английский: '; $refs.chatInput.focus()" class="text-left p-4 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 transition group">
-                        <div class="flex items-center gap-2 text-gray-400 group-hover:text-white mb-1">
-                            <i class="ph ph-translate text-lg"></i>
-                            <span class="text-sm font-medium">Перевести</span>
-                        </div>
-                        <p class="text-xs text-gray-500">На любой язык</p>
-                    </button>
+                <div class="flex flex-col max-w-[90%] md:max-w-[80%]" :class="msg.role === 'user' ? 'items-end' : 'items-start'">
+                    <div class="px-5 py-3.5 rounded-2xl text-[15px] leading-relaxed shadow-sm relative markdown-content break-words" 
+                         :class="msg.role === 'user' ? 'bg-bg-elevated text-text-primary rounded-tr-sm' : 'bg-bg-secondary text-text-primary pl-5 border border-border'">
+                        
+                        <div x-html="parseMarkdown(msg.content)"></div>
+                        
+                        <span x-show="msg.isStreaming" class="inline-block w-2 h-4 bg-primary ml-1 animate-pulse align-middle"></span>
+
+                        <template x-if="msg.attachment_url">
+                            <img :src="msg.attachment_url" class="mt-3 rounded-lg max-w-full max-h-64 border border-border object-cover cursor-pointer hover:opacity-90 transition" onclick="window.open(this.src)">
+                        </template>
+                    </div>
+
+                    <div class="flex items-center gap-3 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 px-2 select-none">
+                        <button @click="copyToClipboard(msg.content)" class="text-text-muted hover:text-text-primary text-xs flex items-center gap-1 transition-colors" title="Копировать">
+                            <i class="ph ph-copy"></i>
+                        </button>
+                        <template x-if="msg.role === 'assistant' && !msg.isStreaming">
+                            <button @click="regenerate()" class="text-text-muted hover:text-text-primary text-xs flex items-center gap-1 transition-colors" title="Перегенерировать">
+                                <i class="ph ph-arrows-clockwise"></i>
+                            </button>
+                        </template>
+                    </div>
                 </div>
             </div>
+        </template>
+        <div class="h-32"></div>
+    </div>
 
-            <template x-for="msg in messages" :key="msg.id">
-                <div class="flex gap-4 max-w-4xl mx-auto group" :class="msg.role === 'user' ? 'justify-end' : 'justify-start'">
-                    
-                    <div x-show="msg.role === 'assistant'" class="w-8 h-8 rounded-full bg-green flex-shrink-0 flex items-center justify-center mt-1">
-                        <i class="ph ph-robot text-white text-lg"></i>
-                    </div>
-                    
-                    <div class="flex flex-col max-w-[85%]" :class="msg.role === 'user' ? 'items-end' : 'items-start'">
-                        <div class="px-5 py-3.5 rounded-2xl text-[15px] leading-relaxed shadow-sm relative markdown-content" 
-                             :class="msg.role === 'user' ? 'bg-white/10 text-white rounded-tr-sm' : 'bg-[#222] text-gray-100 pl-5'">
-                            
-                            <div x-html="parseMarkdown(msg.content)"></div>
-                            
-                            <span x-show="msg.isStreaming" class="inline-block w-2 h-4 bg-green ml-1 animate-pulse align-middle"></span>
+    <div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-bg via-bg to-transparent pt-10 pb-6 px-4">
+        <div class="max-w-3xl mx-auto relative">
+            
+            <div x-show="replyContext" x-transition class="absolute bottom-full left-0 right-0 mb-2 mx-4 bg-bg-elevated border-l-4 border-primary border-t border-r border-border p-3 rounded-t-lg flex items-center justify-between shadow-xl z-20">
+                <div class="flex flex-col overflow-hidden">
+                    <span class="text-[10px] text-primary font-bold uppercase tracking-wider mb-0.5">Ответ на сообщение</span>
+                    <span class="text-sm text-text-secondary truncate" x-text="replyContext?.preview"></span>
+                </div>
+                <button @click="replyContext = null" class="text-text-muted hover:text-text-primary p-1"><i class="ph ph-x"></i></button>
+            </div>
 
-                            <template x-if="msg.attachment_url">
-                                <img :src="msg.attachment_url" class="mt-3 rounded-lg max-w-full max-h-64 border border-white/10 object-cover cursor-pointer" onclick="window.open(this.src)">
-                            </template>
-                            <template x-if="msg.image_url && !msg.image_url.endsWith('.mp4')">
-                                <img :src="msg.image_url" class="mt-3 rounded-lg max-w-full max-h-64 border border-white/10 object-cover cursor-pointer" onclick="window.open(this.src)">
-                            </template>
-                            <template x-if="msg.image_url && msg.image_url.endsWith('.mp4')">
-                                <div class="mt-3 rounded-lg overflow-hidden border border-white/10 w-full max-w-md">
-                                    <video controls playsinline class="w-full"><source :src="msg.image_url" type="video/mp4"></video>
-                                </div>
-                            </template>
-                        </div>
+            <div x-show="attachedFileUrl" x-transition class="absolute bottom-full left-0 mb-2 ml-2 bg-bg-elevated border border-border p-2 rounded-xl flex items-center gap-3 shadow-xl z-20">
+                <div class="relative group">
+                    <img :src="attachedFileUrl" class="w-12 h-12 rounded-lg object-cover bg-black">
+                    <button @click="attachedFileUrl = null; $refs.fileInput.value = ''" class="absolute -top-2 -right-2 bg-danger text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition shadow-sm hover:scale-110">✕</button>
+                </div>
+                <div class="text-xs text-text-secondary mr-2">Изображение<br>прикреплено</div>
+            </div>
 
-                        <!-- Message Actions -->
-                        <div class="flex items-center gap-3 mt-1.5 opacity-60 hover:opacity-100 transition-opacity duration-200 px-2 select-none">
-                            <button @click="copyToClipboard(msg.content)" class="text-gray-500 hover:text-white text-xs flex items-center gap-1 transition-colors" title="Копировать">
-                                <i class="ph ph-copy"></i>
+            <div class="bg-bg-secondary border border-border rounded-2xl shadow-lg flex flex-col transition-colors focus-within:border-primary/50 relative z-10">
+                <textarea x-model="userInput" 
+                          @keydown.enter="if (!$event.shiftKey) { $event.preventDefault(); sendMessage(); }" 
+                          rows="1" 
+                          placeholder="Запрос..." 
+                          class="chat-textarea w-full bg-transparent text-text-primary placeholder-text-muted px-4 py-4 resize-none outline-none max-h-48 overflow-y-auto custom-scrollbar" 
+                          x-ref="chatInput" 
+                          @input="$el.style.height = 'auto'; $el.style.height = $el.scrollHeight + 'px'"></textarea>
+
+                <div class="flex items-center justify-between px-3 pb-3 pt-1">
+                    <div class="flex items-center gap-2">
+                        
+                        <div class="relative" x-data="{ open: false }">
+                            <button @click="open = !open" class="flex items-center gap-2 bg-bg-tertiary hover:bg-bg-elevated px-3 py-1.5 rounded-lg transition border border-border text-xs sm:text-sm text-text-primary">
+                                <span x-html="getCurrentGroupIcon()" class="w-4 h-4 fill-current"></span>
+                                <span class="font-semibold" x-text="currentModelName">GPT-4o</span>
+                                <i class="ph ph-caret-down text-text-muted transition-transform" :class="open ? 'rotate-180' : ''"></i>
                             </button>
-                            
-                            <button @click="replyToMessage(msg)" class="text-gray-500 hover:text-white text-xs flex items-center gap-1 transition-colors" title="Цитировать">
-                                <i class="ph ph-arrow-u-up-left"></i>
-                            </button>
 
-                            <template x-if="msg.role === 'user'">
-                                <button @click="userInput = msg.content; $refs.chatInput.focus()" class="text-gray-500 hover:text-white text-xs flex items-center gap-1 transition-colors" title="Редактировать">
-                                    <i class="ph ph-pencil-simple"></i>
-                                </button>
-                            </template>
-
-                            <template x-if="msg.role === 'assistant' && !msg.isStreaming">
-                                <button @click="regenerate()" class="text-gray-500 hover:text-white text-xs flex items-center gap-1 transition-colors" title="Перегенерировать">
-                                    <i class="ph ph-arrows-clockwise"></i>
-                                </button>
-                            </template>
-                        </div>
-                    </div>
-                </div>
-            </template>
-            <div class="h-32"></div>
-        </div>
-
-        <div class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-dark via-dark to-transparent pt-10 pb-6 px-4">
-            <div class="max-w-3xl mx-auto relative">
-                
-                <div x-show="replyContext" x-transition class="absolute bottom-full left-0 right-0 mb-2 mx-4 bg-[#1a1a1a] border-l-4 border-green border-t border-r border-white/10 p-3 rounded-t-lg flex items-center justify-between shadow-xl z-20">
-                    <div class="flex flex-col overflow-hidden">
-                        <span class="text-[10px] text-green font-bold uppercase tracking-wider mb-0.5">Ответ на сообщение</span>
-                        <span class="text-sm text-gray-300 truncate" x-text="replyContext?.preview"></span>
-                    </div>
-                    <button @click="replyContext = null" class="text-gray-500 hover:text-white p-1"><i class="ph ph-x"></i></button>
-                </div>
-
-                <div x-show="attachedFileUrl" x-transition class="absolute bottom-full left-0 mb-2 ml-2 bg-[#1a1a1a] border border-white/10 p-2 rounded-xl flex items-center gap-3 shadow-xl z-20">
-                    <div class="relative group">
-                        <img :src="attachedFileUrl" class="w-12 h-12 rounded-lg object-cover bg-black">
-                        <button @click="attachedFileUrl = null; $refs.fileInput.value = ''" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition shadow-sm hover:scale-110">✕</button>
-                    </div>
-                    <div class="text-xs text-gray-400 mr-2">Изображение<br>прикреплено</div>
-                </div>
-
-                <div class="bg-sidebar border border-white/10 rounded-2xl shadow-lg flex flex-col transition-colors focus-within:border-white/20">
-                    <textarea x-model="userInput" @keydown.enter="if (!$event.shiftKey) { $event.preventDefault(); sendMessage(); }" rows="1" placeholder="Запрос..." class="chat-textarea w-full bg-transparent text-white placeholder-gray-500 px-4 py-4 resize-none outline-none max-h-48 overflow-y-auto" x-ref="chatInput" @input="$el.style.height = 'auto'; $el.style.height = $el.scrollHeight + 'px'"></textarea>
-
-                    <div class="flex items-center justify-between px-3 pb-3 pt-1">
-                        <div class="flex items-center gap-2">
-                            
-                            <div class="relative" x-data="{ open: false }">
-                                <button @click="open = !open" class="flex items-center gap-2 bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-lg transition border border-white/5 text-xs sm:text-sm">
-                                    <span x-html="getCurrentGroupIcon()" class="w-4 h-4 fill-white"></span>
-                                    <span class="font-semibold" x-text="currentModelName">GPT-4o</span>
-                                    <i class="ph ph-caret-down text-gray-500 transition-transform" :class="open ? 'rotate-180' : ''"></i>
-                                </button>
-
-                                <div x-show="open" @click.outside="open = false" x-transition class="absolute bottom-full left-0 mb-2 w-72 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden max-h-[70vh] flex flex-col">
-                                    <div class="p-2 overflow-y-auto custom-scrollbar flex-1 space-y-1">
-                                        <template x-for="group in aiGroups" :key="group.name">
-                                            <div class="mb-1">
-                                                <button @click="group.isOpen = !group.isOpen" 
-                                                        class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold text-gray-300 hover:bg-white/5 hover:text-white transition-colors">
-                                                    <div class="flex items-center gap-3">
-                                                        <div class="w-5 h-5 fill-current opacity-90" x-html="group.icon"></div>
-                                                        <span x-text="group.name"></span>
-                                                    </div>
-                                                    <i class="ph ph-caret-down text-xs text-gray-500 transition-transform" :class="group.isOpen ? 'rotate-180' : ''"></i>
-                                                </button>
-
-                                                <div x-show="group.isOpen" x-collapse class="pl-2 space-y-0.5 mt-1">
-                                                    <template x-for="model in group.models" :key="model.id">
-                                                        <button @click="setModel(model.id, model.name); open=false" 
-                                                                class="w-full text-left px-3 py-2 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/10 transition-colors ml-2 border-l border-white/5 flex justify-between items-center gap-2"
-                                                                :class="currentModel === model.id ? 'text-green bg-green/5 border-green' : ''">
-                                                            <span x-text="model.name" class="flex-1"></span>
-                                                            <span class="text-[10px] text-gray-600" x-text="model.cost_input + '/' + model.cost_output + ' ₽'"></span>
-                                                            <i x-show="currentModel === model.id" class="ph ph-check text-green"></i>
-                                                        </button>
-                                                    </template>
+                            <div x-show="open" @click.outside="open = false" x-transition class="absolute bottom-full left-0 mb-2 w-72 bg-bg-secondary border border-border rounded-xl shadow-2xl z-50 overflow-hidden max-h-[70vh] flex flex-col">
+                                <div class="p-2 overflow-y-auto custom-scrollbar flex-1 space-y-1">
+                                    <template x-for="group in aiGroups" :key="group.name">
+                                        <div class="mb-1">
+                                            <button @click="group.isOpen = !group.isOpen" 
+                                                    class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors">
+                                                <div class="flex items-center gap-3">
+                                                    <div class="w-5 h-5 fill-current opacity-90" x-html="group.icon"></div>
+                                                    <span x-text="group.name"></span>
                                                 </div>
+                                                <i class="ph ph-caret-down text-xs text-text-muted transition-transform" :class="group.isOpen ? 'rotate-180' : ''"></i>
+                                            </button>
+
+                                            <div x-show="group.isOpen" x-collapse class="pl-2 space-y-0.5 mt-1">
+                                                <template x-for="model in group.models" :key="model.id">
+                                                    <button @click="setModel(model.id, model.name); open=false" 
+                                                            class="w-full text-left px-3 py-2 rounded-lg text-xs text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors ml-2 border-l border-border flex justify-between items-center gap-2"
+                                                            :class="currentModel === model.id ? 'text-primary bg-primary/5 border-primary' : ''">
+                                                        <span x-text="model.name" class="flex-1"></span>
+                                                        <span class="text-[10px] text-text-muted" x-text="model.cost_input + '/' + model.cost_output + ' ₽'"></span>
+                                                        <i x-show="currentModel === model.id" class="ph ph-check text-primary"></i>
+                                                    </button>
+                                                </template>
                                             </div>
-                                        </template>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="relative" x-data="{ open: false }" x-show="canSearch">
-                                <button @click="open = !open" class="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition" title="Настройки">
-                                    <i class="ph ph-gear text-xl"></i>
-                                </button>
-                                <div x-show="open" @click.outside="open = false" x-transition class="absolute bottom-full left-0 mb-2 w-64 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl z-50 p-3">
-                                    <button @click="webSearch = !webSearch" class="w-full flex items-center justify-between px-3 py-2 rounded-lg border text-xs font-medium transition-all mb-3" :class="webSearch ? 'bg-blue-500/20 border-blue-500 text-blue-400' : 'bg-white/5 border-transparent text-gray-400'">
-                                        <div class="flex items-center gap-2"><i class="ph ph-globe text-lg"></i><span>Веб-поиск</span></div>
-                                        <div class="w-8 h-4 rounded-full relative transition-colors" :class="webSearch ? 'bg-blue-500' : 'bg-gray-600'">
-                                            <div class="w-2 h-2 bg-white rounded-full absolute top-1 transition-all" :style="webSearch ? 'right: 4px' : 'left: 4px'"></div>
                                         </div>
-                                    </button>
-                                    <div class="text-xs text-gray-400 mb-1 flex justify-between"><span>Точность</span><span>Креатив</span></div>
-                                    <input type="range" min="0" max="1" step="0.1" x-model="temperature" class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                                    </template>
                                 </div>
-                            </div>
-
-                            <div x-show="canVision">
-                                <input type="file" x-ref="fileInput" class="hidden" @change="uploadFile($event)">
-                                <button @click="$refs.fileInput.click()" class="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition" title="Прикрепить" :disabled="isUploading">
-                                    <i class="ph ph-paperclip text-xl" x-show="!isUploading"></i>
-                                    <i class="ph ph-spinner text-xl animate-spin text-green" x-show="isUploading" x-cloak></i>
-                                </button>
                             </div>
                         </div>
 
-                        <!-- Кнопка отправки / остановки -->
-                        <button x-show="!isTyping" @click="sendMessage()" class="p-2 rounded-xl transition-all duration-200" :class="userInput.trim() || attachedFileUrl ? 'bg-white text-black hover:bg-gray-200' : 'bg-white/10 text-gray-500 cursor-not-allowed'" :disabled="!userInput.trim() && !attachedFileUrl">
-                            <i class="ph ph-arrow-up text-xl font-bold"></i>
-                        </button>
-                        <button x-show="isTyping" @click="stopGeneration()" class="p-2 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-all duration-200" title="Остановить">
-                            <i class="ph ph-stop text-xl font-bold"></i>
-                        </button>
+                        <div class="relative" x-data="{ open: false }" x-show="canSearch">
+                            <button @click="open = !open" class="p-2 text-text-muted hover:text-text-primary hover:bg-bg-elevated rounded-lg transition" title="Настройки">
+                                <i class="ph ph-gear text-xl"></i>
+                            </button>
+                            <div x-show="open" @click.outside="open = false" x-transition class="absolute bottom-full left-0 mb-2 w-64 bg-bg-secondary border border-border rounded-xl shadow-2xl z-50 p-3">
+                                <button @click="webSearch = !webSearch" class="w-full flex items-center justify-between px-3 py-2 rounded-lg border text-xs font-medium transition-all mb-3" :class="webSearch ? 'bg-blue-500/20 border-blue-500 text-blue-400' : 'bg-bg-tertiary border-transparent text-text-muted'">
+                                    <div class="flex items-center gap-2"><i class="ph ph-globe text-lg"></i><span>Веб-поиск</span></div>
+                                    <div class="w-8 h-4 rounded-full relative transition-colors" :class="webSearch ? 'bg-blue-500' : 'bg-gray-600'">
+                                        <div class="w-2 h-2 bg-white rounded-full absolute top-1 transition-all" :style="webSearch ? 'right: 4px' : 'left: 4px'"></div>
+                                    </div>
+                                </button>
+                                <div class="text-xs text-text-muted mb-1 flex justify-between"><span>Точность</span><span>Креатив</span></div>
+                                <input type="range" min="0" max="1" step="0.1" x-model="temperature" class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                            </div>
+                        </div>
+
+                        <div x-show="canVision">
+                            <input type="file" x-ref="fileInput" class="hidden" @change="uploadFile($event)">
+                            <button @click="$refs.fileInput.click()" class="p-2 text-text-muted hover:text-text-primary hover:bg-bg-elevated rounded-lg transition" title="Прикрепить" :disabled="isUploading">
+                                <i class="ph ph-paperclip text-xl" x-show="!isUploading"></i>
+                                <i class="ph ph-spinner text-xl animate-spin text-primary" x-show="isUploading" x-cloak></i>
+                            </button>
+                        </div>
                     </div>
-                    
-                    <!-- Счётчик символов и регенерация -->
-                    <div class="flex items-center justify-between px-4 pb-2 text-xs text-gray-500">
-                        <span x-text="userInput.length + ' символов'"></span>
-                        <button x-show="lastUserMessage && !isTyping && messages.length > 0" @click="regenerate()" class="flex items-center gap-1 hover:text-white transition">
-                            <i class="ph ph-arrows-clockwise"></i>
-                            <span>Повторить</span>
-                        </button>
-                    </div>
+
+                    <button x-show="!isTyping" @click="sendMessage()" class="p-2 rounded-xl transition-all duration-200" :class="userInput.trim() || attachedFileUrl ? 'bg-primary text-white hover:bg-green-600 shadow-md' : 'bg-bg-tertiary text-text-muted cursor-not-allowed'" :disabled="!userInput.trim() && !attachedFileUrl">
+                        <i class="ph ph-arrow-up text-xl font-bold"></i>
+                    </button>
+                    <button x-show="isTyping" @click="stopGeneration()" class="p-2 rounded-xl bg-danger text-white hover:bg-red-600 transition-all duration-200 shadow-md animate-pulse" title="Остановить">
+                        <i class="ph ph-stop text-xl font-bold"></i>
+                    </button>
                 </div>
             </div>
         </div>
-    </main>
+    </div>
+
 </div>
 
 {% endblock %}

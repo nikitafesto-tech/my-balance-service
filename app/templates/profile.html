@@ -1,41 +1,53 @@
-{% extends "layouts/base.html" %}
+{% extends "layouts/base_app.html" %}
 
 {% block title %}Профиль — Neirosetim{% endblock %}
 
-{% block head_scripts %}
+{# ВАЖНО: Используем app_content, так как наследуемся от base_app.html #}
+{% block app_content %}
+
 <script src="https://yookassa.ru/checkout-widget/v1/checkout-widget.js"></script>
-{% endblock %}
 
-{% block content %}
-
-<div class="profile-wrapper">
-    <h2 class="profile-title">Мой кошелек</h2>
-    
-    <div class="payment-card">
-        <div class="payment-card__label">Текущий баланс</div>
-        <div class="payment-card__balance">{{ balance }} ₽</div>
+<div class="h-full overflow-y-auto flex items-center justify-center p-4">
+    <div class="profile-wrapper w-full max-w-lg">
+        <h2 class="text-2xl font-bold mb-6 text-center">Мой кошелек</h2>
         
-        <p class="payment-card__hint">Пополнение картой РФ или СБП без комиссии</p>
+        <div class="payment-card bg-bg-secondary border border-border rounded-2xl p-8 text-center shadow-lg relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-blue-500"></div>
+            
+            <div class="text-xs uppercase tracking-wider text-text-muted mb-2 font-bold">Текущий баланс</div>
+            <div class="text-5xl font-bold mb-4 text-text-primary">{{ balance | default(0) }} ₽</div>
+            
+            <p class="text-sm text-text-secondary mb-8 bg-bg-tertiary inline-block px-3 py-1 rounded-full border border-border">
+                Пополнение картой РФ или СБП без комиссии
+            </p>
 
-        <div class="payment-form">
-            <input type="number" id="amount-input" class="payment-input" value="100" min="10">
-            <button onclick="openPaymentModal()" id="pay-btn" class="payment-btn">Пополнить</button>
+            <div class="flex gap-3 justify-center mb-2">
+                <input type="number" id="amount-input" class="w-32 p-3 bg-bg border border-border rounded-xl text-center text-lg font-bold focus:border-primary outline-none transition-colors" value="100" min="10">
+                <button onclick="openPaymentModal()" id="pay-btn" class="bg-primary hover:bg-green-600 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg hover:shadow-green-500/20 active:scale-95">
+                    Пополнить
+                </button>
+            </div>
+            <div id="error-msg" class="text-danger text-sm mt-4 min-h-[20px]"></div>
         </div>
-        <div id="error-msg" class="payment-error"></div>
-    </div>
 
-    <div class="logout-section">
-        <a href="/logout" class="logout-link">Выйти из аккаунта</a>
+        <div class="text-center mt-12">
+            <a href="/logout" class="text-sm text-text-muted hover:text-danger transition-colors flex items-center justify-center gap-2">
+                <i class="ph ph-sign-out"></i>
+                Выйти из аккаунта
+            </a>
+        </div>
     </div>
 </div>
 
 <div id="payment-modal" class="modal-overlay">
     <div class="modal-card">
-        <div onclick="closeModal()" class="modal-close">&times;</div>
-        <div id="yookassa-widget" class="widget-container"></div>
+        <div class="flex items-center justify-between p-4 border-b border-border">
+            <h3 class="font-bold text-lg">Пополнение баланса</h3>
+            <div onclick="closeModal()" class="cursor-pointer w-8 h-8 flex items-center justify-center rounded-lg hover:bg-bg-hover text-text-muted hover:text-text-primary transition-colors">&times;</div>
+        </div>
+        <div id="yookassa-widget" class="min-h-[300px] p-4"></div>
     </div>
 </div>
-
 {% endblock %}
 
 {% block scripts %}
