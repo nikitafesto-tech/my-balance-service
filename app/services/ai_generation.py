@@ -2,6 +2,7 @@ import os
 import json
 import logging
 import httpx
+import asyncio
 from openai import AsyncOpenAI
 
 logger = logging.getLogger(__name__)
@@ -11,11 +12,16 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 FAL_KEY = os.getenv("FAL_KEY")
 AI_PROXY_URL = os.getenv("AI_PROXY_URL")  # HTTP прокси для OpenRouter
 
-# Создаём HTTP-клиент с прокси (только для OpenRouter)
+# Создаём HTTP-клиент с таймаутами (по умолчанию используется прокси, если задан)
 http_client = None
+DEFAULT_AI_TIMEOUT = float(os.getenv("AI_TIMEOUT", "30"))
+timeout = httpx.Timeout(DEFAULT_AI_TIMEOUT, connect=10.0)
+
 if AI_PROXY_URL:
-    http_client = httpx.AsyncClient(proxy=AI_PROXY_URL)
+    http_client = httpx.AsyncClient(proxy=AI_PROXY_URL, timeout=timeout)
     logger.info(f"OpenRouter proxy: {AI_PROXY_URL.split('@')[-1] if '@' in AI_PROXY_URL else 'configured'}")
+else:
+    http_client = httpx.AsyncClient(timeout=timeout)
 
 client = AsyncOpenAI(
     base_url="https://openrouter.ai/api/v1",
@@ -256,6 +262,7 @@ async def generate_ai_response_stream(model_id: str, messages: list, user_balanc
     if web_search:
         extra_body["plugins"] = [{"id": "web_search"}] 
 
+    logger.debug(f"generate_ai_response_stream start model={model_id} timeout={DEFAULT_AI_TIMEOUT}")
     try:
         stream = await client.chat.completions.create(
             model=model_id,
@@ -269,7 +276,7 @@ async def generate_ai_response_stream(model_id: str, messages: list, user_balanc
         input_tokens_approx = sum(len(m['content']) for m in messages) / 4 
         
         async for chunk in stream:
-            content = chunk.choices[0].delta.content
+            content = getattr(chunk.choices[0].delta, 'content', None)
             if content:
                 full_response += content
                 yield content, 0.0
@@ -281,8 +288,17 @@ async def generate_ai_response_stream(model_id: str, messages: list, user_balanc
         
         yield "", total_cost
 
+    except httpx.ReadTimeout as e:
+        logger.error(f"AI Generation Timeout (read): {e}")
+        yield "Error: request timed out (read)", 0.0
+    except httpx.ConnectTimeout as e:
+        logger.error(f"AI Generation Timeout (connect): {e}")
+        yield "Error: request timed out (connect)", 0.0
+    except httpx.TimeoutException as e:
+        logger.error(f"AI Generation Timeout: {e}")
+        yield "Error: request timed out", 0.0
     except Exception as e:
-        logger.error(f"AI Generation Error: {e}")
+        logger.exception(f"AI Generation Error: {e}")
         yield f"Error: {str(e)}", 0.0
 
 
@@ -302,10 +318,18 @@ async def generate_ai_response_media(model_id: str, messages: list, user_balance
         # (вставь сюда код вызова Fal.ai из своего бэкапа, если он был)
         
         # Эмуляция (задержка для реализма)
-        import asyncio
         await asyncio.sleep(2)
         return f"![Generated Image](https://via.placeholder.com/1024x1024?text=Gen+{model_id.split('/')[-1]}) (Генерация {model_id})", cost
 
+    except httpx.ReadTimeout as e:
+        logger.error(f"Media Gen Timeout (read): {e}")
+        raise Exception("request timed out (read)")
+    except httpx.ConnectTimeout as e:
+        logger.error(f"Media Gen Timeout (connect): {e}")
+        raise Exception("request timed out (connect)")
+    except httpx.TimeoutException as e:
+        logger.error(f"Media Gen Timeout: {e}")
+        raise Exception("request timed out")
     except Exception as e:
-        logger.error(f"Media Gen Error: {e}")
-        raise e
+        logger.exception(f"Media Gen Error: {e}")
+        raise
