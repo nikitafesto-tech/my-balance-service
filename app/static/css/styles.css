@@ -354,3 +354,12 @@ body {
 .bg-primary\/20 {
     background-color: rgba(168, 85, 247, 0.2);
 }
+/* В конец styles.css */
+.otp-digit::-webkit-outer-spin-button,
+.otp-digit::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.otp-digit {
+    -moz-appearance: textfield;
+}
