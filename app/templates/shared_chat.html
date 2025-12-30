@@ -1,0 +1,74 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}{{ title }} — Shared Chat{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex flex-col bg-bg text-text-primary">
+    
+    <header class="h-16 border-b border-border bg-bg-secondary flex items-center justify-between px-4 sticky top-0 z-50 backdrop-blur-md">
+        <div class="flex items-center gap-3">
+            <a href="/" class="flex items-center gap-2 font-bold text-xl tracking-tight text-text-primary">
+                <img src="/static/media/logo-desktop.svg" alt="Logo" class="h-8 w-auto">
+            </a>
+            <div class="h-6 w-px bg-border mx-2"></div>
+            <div>
+                <h1 class="text-sm font-bold truncate max-w-[200px] sm:max-w-md">{{ title }}</h1>
+                <p class="text-[10px] text-text-muted">{{ date }} • {{ model_name }}</p>
+            </div>
+        </div>
+        
+        <a href="/" class="px-4 py-2 bg-primary hover:bg-primary-hover text-white text-sm font-medium rounded-lg transition-colors shadow-lg shadow-primary/20">
+            Попробовать Neirosetim
+        </a>
+    </header>
+
+    <main class="flex-1 w-full max-w-4xl mx-auto p-4 md:p-8 space-y-6">
+        {% for msg in messages %}
+        <div class="flex gap-4 group {{ 'justify-end' if msg.role == 'user' else 'justify-start' }}">
+            
+            {% if msg.role == 'assistant' %}
+            <div class="w-8 h-8 rounded-full bg-primary flex-shrink-0 flex items-center justify-center mt-1 shadow-md">
+                <i class="ph ph-robot text-white text-lg"></i>
+            </div>
+            {% endif %}
+            
+            <div class="flex flex-col max-w-[90%] md:max-w-[80%] {{ 'items-end' if msg.role == 'user' else 'items-start' }}">
+                <div class="px-5 py-3.5 rounded-2xl text-[15px] leading-relaxed shadow-sm relative markdown-content break-words
+                            {{ 'bg-bg-elevated text-text-primary rounded-tr-sm' if msg.role == 'user' else 'bg-bg-secondary text-text-primary pl-5 border border-border' }}">
+                    
+                    <div class="msg-content" data-content="{{ msg.content }}"></div>
+
+                    {% if msg.attachment_url %}
+                        <img src="{{ msg.attachment_url }}" class="mt-3 rounded-lg max-w-full max-h-64 border border-border object-cover">
+                    {% endif %}
+                    {% if msg.image_url %}
+                        <img src="{{ msg.image_url }}" class="mt-3 rounded-lg max-w-full max-h-64 border border-border object-cover shadow-lg">
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        
+        <div class="h-20 text-center text-text-muted text-sm pt-10">
+            Конец диалога
+        </div>
+    </main>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/atom-one-dark.min.css">
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.msg-content').forEach(el => {
+            const raw = el.dataset.content;
+            // Простой парсинг (можно перенести функцию из chat.js)
+            el.innerHTML = marked.parse(raw);
+            el.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+        });
+    });
+</script>
+{% endblock %}

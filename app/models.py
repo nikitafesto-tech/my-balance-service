@@ -55,18 +55,22 @@ class Chat(Base):
     # cascade="all, delete" означает: удалили чат -> удалились все сообщения
     messages = relationship("Message", back_populates="chat", cascade="all, delete")
 
-class Message(Base):
-    __tablename__ = "messages"
+class Chat(Base):
+    __tablename__ = "chats"
     
     id = Column(Integer, primary_key=True, index=True)
-    chat_id = Column(Integer, ForeignKey("chats.id"))
-    role = Column(String) # 'user' или 'assistant'
-    content = Column(Text) # Текст сообщения
+    user_casdoor_id = Column(String, ForeignKey("wallets.casdoor_id"))
+    title = Column(String, default="Новый чат")
+    model = Column(String, default="gpt-4o")
     
-    # Ссылки на файлы в S3 (Selectel)
-    image_url = Column(String, nullable=True)     # Сгенерированная картинка
-    attachment_url = Column(String, nullable=True) # Загруженный пользователем файл
-    
+    # === НОВЫЕ ПОЛЯ ===
+    is_pinned = Column(Boolean, default=False)                # Закреплен ли чат
+    share_token = Column(String, unique=True, nullable=True, index=True) # Ссылка для шеринга
+    expires_at = Column(DateTime, nullable=True)              # Если заполнено — чат удалится после этой даты
+    # ==================
+
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow)
     
-    chat = relationship("Chat", back_populates="messages")
+    user = relationship("UserWallet", back_populates="chats")
+    messages = relationship("Message", back_populates="chat", cascade="all, delete")

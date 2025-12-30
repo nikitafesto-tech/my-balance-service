@@ -19,7 +19,8 @@ from app.services.s3 import upload_file_to_s3
 
 # === ИМПОРТЫ БАЗЫ ===
 from app.database import engine, get_db, Base
-from app.models import UserWallet, UserSession
+# ДОБАВЛЕНО: Chat (нужен для поиска чата по токену)
+from app.models import UserWallet, UserSession, Chat
 
 # --- ЛОГИРОВАНИЕ ---
 logging.basicConfig(level=logging.INFO, stream=sys.stdout)
@@ -93,6 +94,34 @@ def profile(request: Request, db: Session = Depends(get_db)):
         "balance": int(user.balance), 
         "email": user.email,
         "avatar": user.avatar
+    })
+
+# === НОВЫЙ МАРШРУТ: Публичный доступ к чату ===
+@app.get("/share/{token}")
+def shared_chat_page(token: str, request: Request, db: Session = Depends(get_db)):
+    """Страница просмотра расшаренного чата (публичная)"""
+    chat = db.query(Chat).filter_by(share_token=token).first()
+    
+    if not chat:
+        # Используем стандартный обработчик 404
+        raise StarletteHTTPException(status_code=404, detail="Chat not found")
+        
+    # Сериализуем сообщения для шаблона
+    messages = []
+    for m in chat.messages:
+        messages.append({
+            "role": m.role,
+            "content": m.content,
+            "image_url": m.image_url,
+            "attachment_url": m.attachment_url
+        })
+
+    return templates.TemplateResponse("shared_chat.html", {
+        "request": request,
+        "title": chat.title,
+        "date": chat.created_at.strftime("%d.%m.%Y"),
+        "messages": messages,
+        "model_name": chat.model
     })
 
 @app.post("/api/upload")

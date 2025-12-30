@@ -1,8 +1,7 @@
 /**
  * Chat Page Logic (Alpine.js)
  * Основная логика чата с AI
- * 
- * ВАЖНО: Jinja2 переменные передаются через data-атрибуты:
+ * * ВАЖНО: Jinja2 переменные передаются через data-атрибуты:
  * - data-balance: начальный баланс пользователя
  * - data-user-id: ID пользователя (casdoor_id)
  */
@@ -28,9 +27,17 @@ function chatApp() {
     return {
         // UI State
         sidebarOpen: false,
+        sidebarCollapsed: localStorage.getItem('sidebarCollapsed') === 'true', // НОВОЕ: Состояние сайдбара
         isTyping: false,
         isUploading: false,
         
+        // Settings State (НОВОЕ)
+        isTempChat: false,      // Временный чат
+        renamingChatId: null,   // ID чата, который переименовываем
+        renameTitle: '',        // Новое название
+        historyMenuOpen: false, // Меню очистки истории
+        activeChatMenu: null,   // Контекстное меню конкретного чата
+
         // Model State
         currentModel: 'openai/gpt-4o',
         currentModelName: 'GPT-4o',
@@ -84,7 +91,7 @@ function chatApp() {
                     return group.icon;
                 }
             }
-            return this.aiGroups[0].icon;
+            return this.aiGroups[0]?.icon || "";
         },
 
         // Lifecycle
@@ -95,6 +102,23 @@ function chatApp() {
             
             await this.loadModels();
             await this.loadHistory();
+        },
+
+        // --- НОВЫЕ UI МЕТОДЫ ---
+
+        toggleSidebarCollapse() {
+            this.sidebarCollapsed = !this.sidebarCollapsed;
+            localStorage.setItem('sidebarCollapsed', this.sidebarCollapsed);
+        },
+
+        toggleTempChat() {
+            this.isTempChat = !this.isTempChat;
+            if (this.isTempChat) {
+                this.startNewChat();
+                this.showToast('Временный чат: история не сохраняется', 'info');
+            } else {
+                this.showToast('Обычный режим', 'success');
+            }
         },
 
         // API Methods
@@ -169,27 +193,54 @@ function chatApp() {
             this.userInput = '';
             this.attachedFileUrl = null;
             this.replyContext = null;
-            this.$nextTick(() => this.$refs.chatInput.focus());
+            // Не сбрасываем isTempChat, чтобы пользователь оставался в режиме, который выбрал
+            this.$nextTick(() => this.$refs.chatInput?.focus());
         },
         
-        async deleteChat(chatId) {
-            if (!confirm('Удалить этот чат?')) return;
-            
+        // --- НОВЫЙ БЛОК УПРАВЛЕНИЯ ЧАТАМИ ---
+
+        // 1. ЗАКРЕПИТЬ
+        async togglePinChat(chatId) {
             try {
-                const res = await fetch(`/api/chats/${chatId}`, { method: 'DELETE' });
+                const res = await fetch(`/api/chats/${chatId}/pin`, { method: 'PATCH' });
                 if (res.ok) {
-                    // Убираем из списка
-                    this.chatHistory = this.chatHistory.filter(c => c.id !== chatId);
-                    // Если удалили активный чат — очищаем
-                    if (this.activeChatId === chatId) {
-                        this.startNewChat();
+                    const data = await res.json();
+                    // Обновляем локально
+                    const chat = this.chatHistory.find(c => c.id === chatId);
+                    if (chat) {
+                        chat.is_pinned = data.is_pinned;
+                        this.sortHistory();
                     }
                 }
-            } catch (e) {
-                console.error("Delete failed", e);
-            }
+            } catch (e) { this.showToast('Ошибка закрепления', 'error'); }
         },
-        
+
+        // 2. ПОДЕЛИТЬСЯ
+        async shareChat(chatId) {
+            try {
+                const res = await fetch(`/api/chats/${chatId}/share`, { method: 'POST' });
+                if (res.ok) {
+                    const data = await res.json();
+                    this.copyToClipboard(data.link);
+                    this.showToast('Ссылка скопирована!');
+                }
+            } catch (e) { this.showToast('Ошибка при создании ссылки', 'error'); }
+        },
+
+        // 3. ПЕРЕИМЕНОВАТЬ (UI логика)
+        startRenaming(id, oldTitle) {
+            this.renamingChatId = id;
+            this.renameTitle = oldTitle;
+            // Фокус на инпут будет установлен через x-init или $nextTick в HTML
+        },
+
+        async submitRename() {
+            if (!this.renameTitle.trim()) return;
+            await this.renameChat(this.renamingChatId, this.renameTitle);
+            this.renamingChatId = null;
+        },
+
+        // Базовая функция переименования (API)
         async renameChat(chatId, newTitle) {
             if (!newTitle.trim()) return;
             
@@ -209,7 +260,53 @@ function chatApp() {
                 console.error("Rename failed", e);
             }
         },
+
+        // 4. УДАЛИТЬ ЧАТ
+        async deleteChat(chatId) {
+            if (!confirm('Удалить этот чат?')) return;
+            
+            try {
+                const res = await fetch(`/api/chats/${chatId}`, { method: 'DELETE' });
+                if (res.ok) {
+                    // Убираем из списка
+                    this.chatHistory = this.chatHistory.filter(c => c.id !== chatId);
+                    // Если удалили активный чат — очищаем
+                    if (this.activeChatId === chatId) {
+                        this.startNewChat();
+                    }
+                }
+            } catch (e) {
+                console.error("Delete failed", e);
+            }
+        },
+
+        // 5. ОЧИСТКА ИСТОРИИ (МАССОВАЯ)
+        async deleteHistory(range) {
+            if (!confirm(`Удалить историю (${range === 'all' ? 'всё' : range})? Это действие нельзя отменить.`)) return;
+            try {
+                const res = await fetch(`/api/chats/history/clear?range=${range}`, { method: 'DELETE' });
+                if (res.ok) {
+                    await this.loadHistory(); // Перезагружаем список с сервера
+                    // Если текущий чат был удален
+                    if (!this.chatHistory.find(c => c.id === this.activeChatId)) {
+                        this.startNewChat();
+                    }
+                    this.showToast('История очищена');
+                    this.historyMenuOpen = false;
+                }
+            } catch (e) { this.showToast('Ошибка удаления', 'error'); }
+        },
+
+        // Сортировка: закрепленные сверху, потом по дате
+        sortHistory() {
+            this.chatHistory.sort((a, b) => {
+                if (a.is_pinned !== b.is_pinned) return b.is_pinned - a.is_pinned;
+                return new Date(b.date) - new Date(a.date);
+            });
+        },
         
+        // --- End of new logic ---
+
         showToast(message, type = 'success') {
             this.toast = { show: true, message, type };
             setTimeout(() => { this.toast.show = false; }, 2500);
@@ -320,7 +417,8 @@ function chatApp() {
                     model: this.currentModel,
                     temperature: parseFloat(this.temperature),
                     web_search: this.webSearch && this.canSearch,
-                    attachment_url: fileUrl
+                    attachment_url: fileUrl,
+                    is_temporary: this.isTempChat // НОВОЕ: Флаг временного чата
                 };
                 
                 const url = !this.activeChatId ? '/api/chats/new' : `/api/chats/${this.activeChatId}/message`;
@@ -452,7 +550,6 @@ function chatApp() {
             if (!text) return "";
             
             // Обработка блоков <think> (в том числе незакрытых при стриминге)
-            // Если есть открывающий тег, но нет закрывающего - считаем всё до конца "мыслями"
             if (text.includes('<think>') && !text.includes('</think>')) {
                 text = text.replace('<think>', '<details class="reasoning" open><summary>Размышления</summary><div class="reasoning-content">') + '</div></details>';
             } else {
@@ -487,11 +584,10 @@ function chatApp() {
                 wrapper.appendChild(header);
                 wrapper.appendChild(pre);
                 
-                hljs.highlightElement(block);
+                if (window.hljs) hljs.highlightElement(block);
             });
 
             // Рендеринг формул KaTeX
-            // Проверяем наличие функции и пробуем отрендерить
             if (window.renderMathInElement) {
                 try {
                     renderMathInElement(doc.body, {

@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Request, Depends, HTTPException, Body
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
-from datetime import datetime
+from sqlalchemy import desc, or_
+from datetime import datetime, timedelta
 import json
 import logging
+import uuid
 
 from app.database import get_db, SessionLocal
 from app.models import UserWallet, Chat, Message
@@ -23,12 +24,92 @@ def get_available_models():
     """Возвращает список доступных моделей и групп для фронтенда"""
     return get_models_config()
 
+# === ОБНОВЛЕНО: Получение списка чатов (Сортировка + Фильтр временных) ===
 @router.get("")
 def get_chats(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
     if not user: raise HTTPException(401)
-    chats = db.query(Chat).filter_by(user_casdoor_id=user.casdoor_id).order_by(desc(Chat.updated_at)).all()
-    return [{"id": c.id, "title": c.title, "date": c.updated_at.isoformat()} for c in chats]
+    
+    now = datetime.utcnow()
+    
+    # 1. Фильтруем: только чаты юзера И (не временные ИЛИ срок действия не истек)
+    # 2. Сортируем: сначала закрепленные, потом по дате обновления
+    chats = db.query(Chat).filter(
+        Chat.user_casdoor_id == user.casdoor_id,
+        or_(Chat.expires_at == None, Chat.expires_at > now)
+    ).order_by(
+        desc(Chat.is_pinned), 
+        desc(Chat.updated_at)
+    ).all()
+    
+    return [
+        {
+            "id": c.id, 
+            "title": c.title, 
+            "date": c.updated_at.isoformat(),
+            "is_pinned": c.is_pinned,               # Новое поле
+            "is_temporary": c.expires_at is not None # Новое поле
+        } 
+        for c in chats
+    ]
+
+# === НОВОЕ: Закрепить / Открепить чат ===
+@router.patch("/{chat_id}/pin")
+def pin_chat(chat_id: int, request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user: raise HTTPException(401)
+    
+    chat = db.query(Chat).filter_by(id=chat_id, user_casdoor_id=user.casdoor_id).first()
+    if not chat: raise HTTPException(404, "Chat not found")
+    
+    chat.is_pinned = not chat.is_pinned
+    db.commit()
+    
+    return {"success": True, "is_pinned": chat.is_pinned}
+
+# === НОВОЕ: Поделиться чатом (Генерация ссылки) ===
+@router.post("/{chat_id}/share")
+def share_chat(chat_id: int, request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user: raise HTTPException(401)
+    
+    chat = db.query(Chat).filter_by(id=chat_id, user_casdoor_id=user.casdoor_id).first()
+    if not chat: raise HTTPException(404, "Chat not found")
+    
+    # Если токена нет - генерируем новый
+    if not chat.share_token:
+        chat.share_token = str(uuid.uuid4())
+        db.commit()
+        
+    return {"link": f"https://neirosetim.ru/share/{chat.share_token}"}
+
+# === НОВОЕ: Массовая очистка истории ===
+@router.delete("/history/clear")
+def clear_history(range: str, request: Request, db: Session = Depends(get_db)):
+    """range = 'today' | 'week' | 'all'"""
+    user = get_current_user(request, db)
+    if not user: raise HTTPException(401)
+    
+    query = db.query(Chat).filter_by(user_casdoor_id=user.casdoor_id)
+    now = datetime.utcnow()
+    
+    if range == 'today':
+        start_of_day = datetime(now.year, now.month, now.day)
+        query = query.filter(Chat.created_at >= start_of_day)
+    elif range == 'week':
+        week_ago = now - timedelta(days=7)
+        query = query.filter(Chat.created_at >= week_ago)
+    elif range == 'all':
+        pass
+    else:
+        raise HTTPException(400, "Invalid range")
+    
+    chats_to_delete = query.all()
+    for chat in chats_to_delete:
+        db.delete(chat) # Удалит и сообщения благодаря cascade="all, delete"
+        
+    db.commit()
+    return {"success": True, "deleted_count": len(chats_to_delete)}
 
 @router.delete("/{chat_id}")
 def delete_chat(chat_id: int, request: Request, db: Session = Depends(get_db)):
@@ -38,9 +119,7 @@ def delete_chat(chat_id: int, request: Request, db: Session = Depends(get_db)):
     chat = db.query(Chat).filter_by(id=chat_id, user_casdoor_id=user.casdoor_id).first()
     if not chat: raise HTTPException(404, "Chat not found")
     
-    # Удаляем все сообщения чата
-    db.query(Message).filter_by(chat_id=chat_id).delete()
-    # Удаляем сам чат
+    # Удаляем сам чат (сообщения удалятся каскадно, но можно оставить явное удаление для надежности)
     db.delete(chat)
     db.commit()
     
@@ -76,7 +155,6 @@ def get_chat_history(chat_id: int, request: Request, db: Session = Depends(get_d
             "image_url": m.image_url, "attachment_url": m.attachment_url
         })
     
-    # Возвращаем объект с моделью, чтобы фронтенд мог переключить селектор
     return {
         "id": chat.id,
         "title": chat.title,
@@ -104,11 +182,19 @@ async def handle_chat_request(request: Request, data: dict, db: Session, is_new=
     temp = data.get("temperature", 0.5)
     web = data.get("web_search", False)
     attach = data.get("attachment_url")
+    
+    # Флаг временного чата с фронтенда
+    is_temp = data.get("is_temporary", False)
 
     # 1. Создаем/Ищем чат
     if is_new:
         title = user_text[:30] + "..." if len(user_text) > 30 else user_text
         chat = Chat(user_casdoor_id=user.casdoor_id, title=title, model=model)
+        
+        # Если чат временный — ставим срок жизни 24 часа
+        if is_temp:
+            chat.expires_at = datetime.utcnow() + timedelta(hours=24)
+            
         db.add(chat)
         db.commit()
         db.refresh(chat)
@@ -116,8 +202,6 @@ async def handle_chat_request(request: Request, data: dict, db: Session, is_new=
         chat = db.query(Chat).filter_by(id=chat_id, user_casdoor_id=user.casdoor_id).first()
         if not chat: raise HTTPException(404, "Chat not found")
         chat.updated_at = datetime.utcnow()
-        # Можно обновлять модель чата, если юзер переключил её
-        # chat.model = model 
 
     # 2. Сохраняем сообщение пользователя
     user_msg = Message(chat_id=chat.id, role="user", content=user_text)
@@ -139,7 +223,7 @@ async def handle_chat_request(request: Request, data: dict, db: Session, is_new=
 
     if is_media:
         try:
-            # cost_rub возвращается сразу из функции (так как мы перешли на рубли)
+            # cost_rub возвращается сразу из функции
             reply_text, cost_rub = await generate_ai_response_media(model, messages_payload, user.balance, attach)
         except Exception as e:
             raise HTTPException(500, f"Generation Error: {e}")
