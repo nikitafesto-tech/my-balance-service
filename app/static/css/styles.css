@@ -312,3 +312,45 @@ body {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
 }
+/* === AUTH PAGE STYLES (Исправлено и адаптировано) === */
+
+/* 1. Настройка инпутов */
+/* Используем ID, чтобы перебить стандартные стили Tailwind при необходимости */
+#email-section input {
+    /* Фон берем темный, как на кнопках в дизайне (#27272a ~ rgb(39, 39, 42)) 
+       или используем твою переменную для третичного фона */
+    background-color: #27272a !important; 
+    color: white !important;
+    border: 1px solid transparent; 
+    font-size: 1.125rem; /* 18px */
+    transition: all 0.2s ease;
+}
+
+#email-section input:focus {
+    background-color: #3f3f46 !important; /* Чуть светлее при фокусе */
+    border-color: var(--color-primary); /* Исправлено имя переменной */
+    box-shadow: 0 0 0 4px var(--primary-glow);
+    outline: none;
+}
+
+/* Скрываем стрелки у input type="number" (для кода) */
+#email-section input[type=number]::-webkit-inner-spin-button, 
+#email-section input[type=number]::-webkit-outer-spin-button { 
+  -webkit-appearance: none; 
+  margin: 0; 
+}
+
+/* 2. Анимация появления (Fade In) */
+.animate-fade-in {
+    animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* 3. Фикс для свечения (если используется в HTML) */
+.bg-primary\/20 {
+    background-color: rgba(168, 85, 247, 0.2);
+}
