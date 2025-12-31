@@ -362,4 +362,5 @@ body {
 }
 .otp-digit {
     -moz-appearance: textfield;
+    appearance: textfield;  /* <--- ДОБАВИТЬ ВОТ ЭТО */
 }
