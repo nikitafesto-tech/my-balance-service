@@ -352,7 +352,7 @@ body {
 
 /* 3. Фикс для свечения (если используется в HTML) */
 .bg-primary\/20 {
-    background-color: rgba(168, 85, 247, 0.2);
+    background-color: rgba(168, 85, 247, 0.3);
 }
 /* В конец styles.css */
 .otp-digit::-webkit-outer-spin-button,
