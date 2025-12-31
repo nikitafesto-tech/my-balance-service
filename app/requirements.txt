@@ -11,3 +11,4 @@ python-multipart
 boto3
 openai
 fal-client
+alembic
