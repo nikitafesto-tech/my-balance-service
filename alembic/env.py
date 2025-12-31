@@ -5,19 +5,16 @@ from alembic import context
 import sys
 import os
 
-# Добавляем корневую папку в путь, чтобы видеть app
+# Добавляем путь к приложению
 sys.path.append(os.getcwd())
 
-# === ИМПОРТ ВАШИХ МОДЕЛЕЙ ===
+# ИМПОРТИРУЕМ ВАШИ МОДЕЛИ
 from app.database import Base
-# Обязательно импортируем модели, чтобы Alembic их увидел
 from app.models import UserWallet, Chat, Message, Payment, UserSession, EmailCode
 
 config = context.config
 
-# === ЛОГИКА ВЫБОРА БАЗЫ ===
-# Если мы внутри Docker (есть переменная DB_URL), используем её.
-# Если нет - используем локальный sqlite (test.db)
+# Берем URL базы из переменных окружения (Docker) или локальный
 db_url = os.getenv("DB_URL", "sqlite:///./test.db")
 config.set_main_option("sqlalchemy.url", db_url)
 
@@ -26,6 +23,14 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
+# === ВАЖНАЯ ФУНКЦИЯ ДЛЯ ЗАЩИТЫ CASDOOR ===
+def include_object(object, name, type_, reflected, compare_to):
+    # Если это таблица, она есть в базе (reflected), но её нет в наших моделях (compare_to is None)
+    # ЗНАЧИТ ЭТО ТАБЛИЦА CASDOOR — ИГНОРИРУЕМ ЕЁ (НЕ УДАЛЯЕМ)
+    if type_ == "table" and reflected and compare_to is None:
+        return False
+    return True
+
 def run_migrations_offline() -> None:
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
@@ -33,8 +38,8 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        # render_as_batch нужен для корректной работы с SQLite локально
-        render_as_batch=("sqlite" in url) 
+        render_as_batch=("sqlite" in url),
+        include_object=include_object # <--- Подключаем защиту
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -50,8 +55,8 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection, 
             target_metadata=target_metadata,
-            # render_as_batch нужен для корректной работы с SQLite локально
-            render_as_batch=("sqlite" in db_url)
+            render_as_batch=("sqlite" in db_url),
+            include_object=include_object # <--- Подключаем защиту
         )
 
         with context.begin_transaction():
