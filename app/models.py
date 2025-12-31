@@ -40,21 +40,7 @@ class EmailCode(Base):
     code = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-# === ЧАТЫ И СООБЩЕНИЯ (НОВОЕ) ===
-class Chat(Base):
-    __tablename__ = "chats"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    user_casdoor_id = Column(String, ForeignKey("wallets.casdoor_id"))
-    title = Column(String, default="Новый чат")
-    model = Column(String, default="gpt-4o") # Какая модель используется
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow) # Для сортировки списка
-    
-    user = relationship("UserWallet", back_populates="chats")
-    # cascade="all, delete" означает: удалили чат -> удалились все сообщения
-    messages = relationship("Message", back_populates="chat", cascade="all, delete")
-
+# === ЧАТЫ И СООБЩЕНИЯ ===
 class Chat(Base):
     __tablename__ = "chats"
     
@@ -73,4 +59,19 @@ class Chat(Base):
     updated_at = Column(DateTime, default=datetime.utcnow)
     
     user = relationship("UserWallet", back_populates="chats")
+    # cascade="all, delete" означает: удалили чат -> удалились все сообщения
     messages = relationship("Message", back_populates="chat", cascade="all, delete")
+
+class Message(Base):
+    __tablename__ = "messages"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    chat_id = Column(Integer, ForeignKey("chats.id"))
+    role = Column(String) # 'user' или 'assistant'
+    content = Column(Text) # Текст сообщения
+    
+    # Ссылки на файлы/изображения
+    image_url = Column(String, nullable=True)
+    attachment_url = Column(String, nullable=True)
+    
+    chat = relationship("Chat", back_populates="messages")
