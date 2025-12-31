@@ -19,7 +19,11 @@
 {% endblock %}
 
 {% block content %}
-<div x-data="{ sidebarOpen: false }" class="flex h-screen w-full overflow-hidden bg-bg">
+{# === ИЗМЕНЕНИЕ: Инициализируем chatApp ЗДЕСЬ, чтобы Сайдбар его видел === #}
+<div x-data="chatApp()" 
+     data-balance="{{ balance | default(0) }}" 
+     data-user-id="{{ user_id }}"
+     class="flex h-screen w-full overflow-hidden bg-bg">
     
     {# --- ЛЕВАЯ КОЛОНКА: Сайдбар --- #}
     {% include "components/_sidebar.html" %}

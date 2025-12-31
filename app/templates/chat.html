@@ -3,11 +3,8 @@
 {# ВАЖНО: Используем app_content #}
 {% block app_content %}
 
-<div x-data="chatApp()" 
-     data-balance="{{ balance | default(0) }}" 
-     data-user-id="{{ user_id }}" 
-     class="flex flex-col h-full w-full relative" 
-     x-cloak>
+{# === ИЗМЕНЕНИЕ: Убрали x-data="chatApp()", так как оно теперь в base_app.html === #}
+<div class="flex flex-col h-full w-full relative">
 
     <div x-show="toast.show" 
          x-transition:enter="transition ease-out duration-300" 
