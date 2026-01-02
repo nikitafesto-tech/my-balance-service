@@ -11,9 +11,8 @@
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 
-    {# --- 2. ПОДКЛЮЧАЕМ ГЛАВНЫЙ СКРИПТ (бывший chat.js) --- #}
-    {# Теперь он грузится на всех страницах #}
-    <script src="{{ url_for('static', path='js/chat.js') }}"></script>
+    {# --- 2. ПОДКЛЮЧАЕМ ГЛАВНЫЙ СКРИПТ (app.js) --- #}
+    <script src="{{ url_for('static', path='js/app.js') }}"></script>
 {% endblock %}
 
 {% block content %}
