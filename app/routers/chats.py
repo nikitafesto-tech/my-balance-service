@@ -170,15 +170,33 @@ def delete_chat(chat_id: int, request: Request, db: Session = Depends(get_db)):
 def clear_history(range: str, request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
     if not user: raise HTTPException(401)
+    
+    # 1. Формируем запрос на поиск чатов
     query = db.query(Chat).filter(Chat.user_casdoor_id == user.casdoor_id)
     now = datetime.utcnow()
     
-    if range == 'last_hour': query = query.filter(Chat.created_at >= now - timedelta(hours=1))
-    elif range == 'last_24h': query = query.filter(Chat.created_at >= now - timedelta(hours=24))
+    if range == 'last_hour':
+        query = query.filter(Chat.created_at >= now - timedelta(hours=1))
+    elif range == 'last_24h':
+        query = query.filter(Chat.created_at >= now - timedelta(hours=24))
     
-    count = query.delete(synchronize_session=False)
-    db.commit()
-    return {"status": "cleared", "count": count}
+    # 2. Сначала находим ID всех чатов, которые нужно удалить
+    # (Это важно сделать до удаления, чтобы не потерять список)
+    chats_to_delete = query.all()
+    chat_ids = [chat.id for chat in chats_to_delete]
+    
+    if chat_ids:
+        # 3. УДАЛЯЕМ СООБЩЕНИЯ (зависимые данные)
+        # Удаляем все сообщения, которые принадлежат найденным чатам
+        db.query(Message).filter(Message.chat_id.in_(chat_ids)).delete(synchronize_session=False)
+        
+        # 4. УДАЛЯЕМ ЧАТЫ (основные данные)
+        # Теперь, когда сообщений нет, чаты удалятся без ошибки 500
+        db.query(Chat).filter(Chat.id.in_(chat_ids)).delete(synchronize_session=False)
+        
+        db.commit()
+    
+    return {"status": "cleared", "count": len(chat_ids)}
 
 @router.patch("/{chat_id}")
 def rename_chat(chat_id: int, request: Request, payload: dict = Body(...), db: Session = Depends(get_db)):
