@@ -5,12 +5,18 @@ services:
     image: postgres:15
     restart: always
     environment:
-      # Настройки для ТВОЕЙ СТАРОЙ БАЗЫ
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: secret_password
-      POSTGRES_DB: casdoor_db  # <-- ТУТ БЫЛА ОШИБКА, ВЕРНУЛ casdoor_db
+      POSTGRES_DB: casdoor_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    # === НОВОЕ: ПРОВЕРКА ЗДОРОВЬЯ БАЗЫ ===
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d casdoor_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    # =====================================
     networks:
       - app_network
 
@@ -22,29 +28,28 @@ services:
     environment:
       driverName: postgres
       dataSourceName: "user=postgres password=secret_password host=db port=5432 sslmode=disable dbname=casdoor_db"
-      
       origin: ${AUTH_URL}
       staticBaseUrl: ${AUTH_URL} 
-      
-      # === ДОБАВЛЯЕМ ЭТИ ДВЕ СТРОКИ ДЛЯ ДЕБАГА ===
       runmode: "dev"
       logPostOnly: "false" 
-      # ===========================================
-      
     depends_on:
-      - db
+      # Casdoor тоже теперь будет ждать базу
+      db:
+        condition: service_healthy
     networks:
       - app_network
 
   app:
     build: .
     restart: always
+    # === ВЕРНУЛИ КОМАНДУ АВТО-МИГРАЦИИ ===
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8081"
+    # =====================================
     ports:
       - "8081:8081"
     environment:
-      # Тут тоже исправил имя базы
       - DB_URL=postgresql://postgres:secret_password@db:5432/casdoor_db
-      - PYTHONUNBUFFERED=1 # <-- ЧТОБЫ ЛОГИ БЫЛИ ВИДНЫ СРАЗУ
+      - PYTHONUNBUFFERED=1
       
       - SITE_URL=${SITE_URL}
       - AUTH_URL=${AUTH_URL}
@@ -76,8 +81,11 @@ services:
       - FAL_KEY=${FAL_KEY}
       - AI_PROXY_URL=${AI_PROXY_URL}
     depends_on:
-      - db
-      - casdoor
+      # === ГЛАВНОЕ: ЖДЕМ ЗДОРОВЬЯ БАЗЫ ===
+      db:
+        condition: service_healthy
+      casdoor:
+        condition: service_started
     volumes:
       - ./cert.pem:/app/cert.pem
     networks:

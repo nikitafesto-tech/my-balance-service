@@ -2,10 +2,9 @@
 
 {% block app_content %}
 
-{# Убрали x-data="chatApp()", так как оно теперь в base_app.html #}
 <div class="flex flex-col h-full w-full relative">
 
-    {# === ПЛАШКА ВРЕМЕННОГО ЧАТА (Видна, если включен режим) === #}
+    {# === ПЛАШКА ВРЕМЕННОГО ЧАТА === #}
     <div x-show="isTempChat" 
          class="bg-purple-500/10 border-b border-purple-500/20 p-2 text-center text-xs text-purple-300 flex items-center justify-center gap-2"
          x-transition
@@ -146,13 +145,14 @@
                                             </button>
 
                                             <div x-show="group.isOpen" x-collapse class="pl-2 space-y-0.5 mt-1">
-                                                <template x-for="model in group.models" :key="model.id">
-                                                    <button @click="setModel(model.id, model.name); open=false" 
+                                                {# ИСПРАВЛЕНО: используем 'm' вместо 'model' #}
+                                                <template x-for="m in group.models" :key="m.id">
+                                                    <button @click="setModel(m.id, m.name); open=false" 
                                                             class="w-full text-left px-3 py-2 rounded-lg text-xs text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors ml-2 border-l border-border flex justify-between items-center gap-2"
-                                                            :class="currentModel === model.id ? 'text-primary bg-primary/5 border-primary' : ''">
-                                                        <span x-text="model.name" class="flex-1"></span>
-                                                        <span class="text-[10px] text-text-muted" x-text="model.cost_input + '/' + model.cost_output + ' ₽'"></span>
-                                                        <i x-show="currentModel === model.id" class="ph ph-check text-primary"></i>
+                                                            :class="currentModel === m.id ? 'text-primary bg-primary/5 border-primary' : ''">
+                                                        <span x-text="m.name" class="flex-1"></span>
+                                                        <span class="text-[10px] text-text-muted" x-text="m.cost_input + '/' + m.cost_output + ' ₽'"></span>
+                                                        <i x-show="currentModel === m.id" class="ph ph-check text-primary"></i>
                                                     </button>
                                                 </template>
                                             </div>
@@ -203,5 +203,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/chat.js"></script>
+<script src="/static/js/app.js"></script>
 {% endblock %}

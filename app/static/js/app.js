@@ -6,33 +6,28 @@
  */
 
 // ==========================================
-// 1. THEME MANAGEMENT (бывший theme.js)
+// 1. THEME MANAGEMENT
 // ==========================================
 (function() {
-    // Получить сохраненную тему или системную
     function getPreferredTheme() {
         const saved = localStorage.getItem('theme');
         if (saved) return saved;
         return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
     }
     
-    // Применить тему к документу
     function applyTheme(theme) {
         document.documentElement.setAttribute('data-theme', theme);
         localStorage.setItem('theme', theme);
     }
     
-    // Глобальная функция переключения (используется в chatApp и кнопках)
     window.toggleTheme = function() {
         const current = document.documentElement.getAttribute('data-theme') || 'dark';
         const next = current === 'dark' ? 'light' : 'dark';
         applyTheme(next);
     };
     
-    // Применить при загрузке
     applyTheme(getPreferredTheme());
     
-    // Слушать системные изменения
     window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', (e) => {
         if (!localStorage.getItem('theme')) {
             applyTheme(e.matches ? 'light' : 'dark');
@@ -42,31 +37,27 @@
 
 
 // ==========================================
-// 2. CHAT & APP LOGIC (бывший chat.js)
+// 2. CHAT & APP LOGIC
 // ==========================================
 
-// Возможности моделей
 const MODEL_CAPABILITIES = {
     'default': { vision: true, web: true },
-    'recraft-v3': { vision: false, web: false },
-    'flux-1.1-ultra': { vision: false, web: false },
-    'veo-3.1': { vision: false, web: false },
-    'midjourney': { vision: false, web: false },
-    'luma-ray-2': { vision: false, web: false },
+    // Модели без зрения и поиска
     'o1-preview': { vision: false, web: false },
     'o1-mini': { vision: false, web: false },
     'deepseek-r1': { vision: false, web: false },
+    // Картинки и видео
+    'recraft-v3': { vision: false, web: false },
+    'flux-pro/v1.1-ultra': { vision: false, web: false },
+    'kling-video/v1.5/pro': { vision: false, web: false },
+    'midjourney-v6': { vision: false, web: false },
 };
 
-/**
- * Main Alpine.js Component
- * Подключается в base_app.html через x-data="chatApp()"
- */
 function chatApp() {
     return {
         // --- UI State ---
-        sidebarOpen: false, // Мобильное меню
-        sidebarCollapsed: localStorage.getItem('sidebarCollapsed') === 'true', // Десктоп сворачивание
+        sidebarOpen: false,
+        sidebarCollapsed: localStorage.getItem('sidebarCollapsed') === 'true',
         isTyping: false,
         isUploading: false,
         
@@ -75,45 +66,92 @@ function chatApp() {
         userInput: '',
         activeChatId: null,
         chats: [],
+        aiGroups: [], 
         chatSearch: '',
-        model: 'gpt-4o',
+        
+        // ВАЖНО: Используем полный ID модели по умолчанию
+        model: 'openai/gpt-4o', 
         
         // --- Features State ---
         attachedFileUrl: null,
         canVision: true,
+        canSearch: true,
+        webSearch: false,
+        temperature: 0.7,
         replyContext: null,
-        isTempChat: false, // Временный чат
+        isTempChat: false,
         
         // --- Menus State ---
-        historyMenuOpen: false, // Меню корзины
+        historyMenuOpen: false,
         renamingChatId: null,
         renameTitle: '',
-        activeChatMenu: null, // Меню "три точки"
-
-        // --- Toast Notifications ---
+        
+        // --- Toast ---
         toast: { show: false, message: '', type: 'info', timeout: null },
 
         init() {
-            // Инициализация данных из HTML атрибутов
-            const el = this.$el; 
-            if (el) {
-                // Если мы на странице чата или есть эти атрибуты
-                if (el.dataset.balance) console.log('Balance loaded:', el.dataset.balance);
-            }
-
             this.loadChats();
-            
-            // Если открыт конкретный чат (URL: /chat/123)
+            this.loadModels(); 
+            this.setupMarkdown();
+
             const path = window.location.pathname;
             const match = path.match(/\/chat\/(\d+)/);
             if (match) {
                 this.loadChat(match[1]);
-            } else if (path === '/') {
-                // Если главная - проверяем, нужно ли начать новый
+            }
+        },
+
+        // --- MODELS LOGIC ---
+        
+        async loadModels() {
+            try {
+                const res = await fetch('/chats/models');
+                if (res.ok) {
+                    this.aiGroups = await res.json();
+                    this.updateCapabilities();
+                }
+            } catch (e) {
+                console.error("Failed to load models", e);
+                this.showToast("Ошибка загрузки списка моделей", "error");
+            }
+        },
+
+        setModel(id, name) {
+            this.model = id;
+            this.updateCapabilities();
+        },
+
+        get currentModelName() {
+            for (const group of this.aiGroups) {
+                const found = group.models.find(m => m.id === this.model);
+                if (found) return found.name;
+            }
+            return this.model; 
+        },
+
+        getCurrentGroupIcon() {
+            for (const group of this.aiGroups) {
+                if (group.models.find(m => m.id === this.model)) {
+                    return group.icon;
+                }
+            }
+            return `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/></svg>`; 
+        },
+
+        updateCapabilities() {
+            let cap = MODEL_CAPABILITIES[this.model] || MODEL_CAPABILITIES['default'];
+            
+            if (!MODEL_CAPABILITIES[this.model]) {
+                if (this.model.includes('claude-3')) cap = { vision: true, web: true };
+                else if (this.model.includes('gpt-4')) cap = { vision: true, web: true };
             }
 
-            // Настройка Markdown парсера
-            this.setupMarkdown();
+            this.canVision = cap.vision;
+            this.canSearch = cap.web;
+        },
+
+        get currentModel() {
+            return this.model;
         },
 
         // --- SIDEBAR LOGIC ---
@@ -121,10 +159,7 @@ function chatApp() {
         toggleSidebarCollapse() {
             this.sidebarCollapsed = !this.sidebarCollapsed;
             localStorage.setItem('sidebarCollapsed', this.sidebarCollapsed);
-            // Даем время CSS анимации отработать, если нужно
-            setTimeout(() => {
-                window.dispatchEvent(new Event('resize'));
-            }, 300);
+            setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 300);
         },
 
         get filteredChats() {
@@ -150,10 +185,6 @@ function chatApp() {
             this.activeChatId = null;
             this.messages = [];
             this.attachedFileUrl = null;
-            
-            // Если включен временный режим - остаемся в нем, иначе сбрасываем
-            // this.isTempChat = false; // (Опционально: можно сбрасывать)
-            
             window.history.pushState({}, '', '/');
         },
 
@@ -161,17 +192,16 @@ function chatApp() {
             this.isTempChat = !this.isTempChat;
             if (this.isTempChat) {
                 this.startNewChat();
-                this.showToast('Включен режим временного чата (24ч)', 'info');
+                this.showToast('Включен временный чат (24ч)', 'info');
             } else {
-                this.startNewChat(); // Тоже сбрасываем, чтобы начать "чистый" постоянный чат
-                this.showToast('Обычный режим (история сохраняется)', 'success');
+                this.startNewChat();
+                this.showToast('Обычный режим', 'success');
             }
         },
 
         async loadChat(id) {
             try {
                 this.activeChatId = id;
-                // На мобильных закрываем меню при выборе
                 this.sidebarOpen = false; 
                 
                 const res = await fetch(`/chats/${id}`);
@@ -179,8 +209,13 @@ function chatApp() {
                 
                 const data = await res.json();
                 this.messages = data.messages || [];
-                this.model = data.model;
-                this.isTempChat = !!data.expires_at; // Если есть дата сгорания - это временный
+                
+                if (data.model) {
+                    this.model = data.model;
+                    this.updateCapabilities();
+                }
+                
+                this.isTempChat = !!data.expires_at;
                 
                 window.history.pushState({}, '', `/chat/${id}`);
                 this.scrollToBottom();
@@ -194,7 +229,6 @@ function chatApp() {
             const text = this.userInput.trim();
             if ((!text && !this.attachedFileUrl) || this.isTyping) return;
 
-            // 1. Добавляем сообщение пользователя в UI
             const userMsg = {
                 id: Date.now(),
                 role: 'user',
@@ -203,17 +237,15 @@ function chatApp() {
             };
             this.messages.push(userMsg);
             
-            // Сброс полей ввода
             this.userInput = '';
             const fileUrl = this.attachedFileUrl;
             this.attachedFileUrl = null;
-            this.$refs.chatInput.style.height = 'auto';
+            if (this.$refs.chatInput) this.$refs.chatInput.style.height = 'auto';
             this.scrollToBottom();
 
             this.isTyping = true;
 
             try {
-                // 2. Определяем URL (новый чат или продолжение)
                 let url = this.activeChatId 
                     ? `/chats/${this.activeChatId}/message` 
                     : '/chats/new';
@@ -222,7 +254,7 @@ function chatApp() {
                     message: text,
                     model: this.model,
                     attachment_url: fileUrl,
-                    is_temporary: this.isTempChat // Передаем флаг временного чата
+                    is_temporary: this.isTempChat
                 };
 
                 const response = await fetch(url, {
@@ -233,21 +265,18 @@ function chatApp() {
 
                 if (!response.ok) throw new Error('Network error');
 
-                // Если был новый чат - сохраняем его ID
                 if (!this.activeChatId) {
                     const idHeader = response.headers.get('X-Chat-Id');
                     if (idHeader) {
                         this.activeChatId = parseInt(idHeader);
                         window.history.pushState({}, '', `/chat/${this.activeChatId}`);
-                        this.loadChats(); // Обновляем сайдбар
+                        this.loadChats();
                     }
                 }
 
-                // 3. Читаем стрим ответа (Streaming Response)
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
                 
-                // Создаем пустое сообщение бота
                 const botMsgId = Date.now() + 1;
                 this.messages.push({
                     id: botMsgId,
@@ -263,7 +292,6 @@ function chatApp() {
                     if (done) break;
                     
                     const chunk = decoder.decode(value);
-                    // Обработка SSE формата (data: ...)
                     const lines = chunk.split('\n');
                     
                     for (const line of lines) {
@@ -272,13 +300,10 @@ function chatApp() {
                                 const json = JSON.parse(line.slice(6));
                                 if (json.content) {
                                     botContent += json.content;
-                                    // Обновляем последнее сообщение
                                     this.messages[this.messages.length - 1].content = botContent;
                                     this.scrollToBottom();
                                 }
-                            } catch (e) {
-                                // Игнорируем ошибки парсинга чанков
-                            }
+                            } catch (e) {}
                         }
                     }
                 }
@@ -287,45 +312,38 @@ function chatApp() {
 
             } catch (e) {
                 console.error(e);
-                this.showToast('Ошибка отправки сообщения', 'error');
+                this.showToast('Ошибка отправки', 'error');
                 this.isTyping = false;
             } finally {
                 this.isTyping = false;
-                this.loadChats(); // Обновляем список (поднимаем чат наверх)
+                this.loadChats();
             }
         },
 
         // --- HISTORY & MANAGEMENT ---
 
         async deleteHistory(range) {
-            if (!confirm('Вы уверены? Это действие нельзя отменить.')) return;
-            
+            if (!confirm('Вы уверены?')) return;
             try {
                 const res = await fetch(`/chats/history/clear?range=${range}`, { method: 'DELETE' });
                 if (res.ok) {
                     this.showToast('История очищена', 'success');
                     this.loadChats();
-                    if (range === 'all' || range === 'last_24h') {
-                        this.startNewChat();
-                    }
+                    if (range === 'all' || range === 'last_24h') this.startNewChat();
                 }
-            } catch (e) {
-                this.showToast('Ошибка удаления', 'error');
-            }
+            } catch (e) { this.showToast('Ошибка', 'error'); }
             this.historyMenuOpen = false;
         },
 
         async deleteChat(id) {
-            if (!confirm("Удалить этот чат?")) return;
+            if (!confirm("Удалить чат?")) return;
             try {
                 const res = await fetch(`/chats/${id}`, { method: 'DELETE' });
                 if (res.ok) {
                     if (this.activeChatId === id) this.startNewChat();
                     this.loadChats();
                 }
-            } catch (e) {
-                console.error(e);
-            }
+            } catch (e) { console.error(e); }
         },
 
         async togglePinChat(id) {
@@ -341,11 +359,9 @@ function chatApp() {
                 const data = await res.json();
                 if (data.link) {
                     this.copyToClipboard(data.link);
-                    this.showToast('Ссылка скопирована!', 'success');
+                    this.showToast('Ссылка скопирована', 'success');
                 }
-            } catch (e) {
-                this.showToast('Ошибка создания ссылки', 'error');
-            }
+            } catch (e) { this.showToast('Ошибка', 'error'); }
         },
 
         async startRenaming(id, oldTitle) {
@@ -362,7 +378,7 @@ function chatApp() {
                     body: JSON.stringify({ title: this.renameTitle })
                 });
                 this.loadChats();
-            } catch(e) { console.error(e); }
+            } catch(e) {}
             this.renamingChatId = null;
         },
 
@@ -377,16 +393,16 @@ function chatApp() {
             formData.append('file', file);
 
             try {
-                const res = await fetch('/upload', { method: 'POST', body: formData });
+                const res = await fetch('/api/upload', { method: 'POST', body: formData });
                 if (!res.ok) throw new Error('Upload failed');
                 const data = await res.json();
                 this.attachedFileUrl = data.url;
-                this.showToast('Файл прикреплен', 'success');
+                this.showToast('Файл загружен', 'success');
             } catch (e) {
                 this.showToast('Ошибка загрузки', 'error');
             } finally {
                 this.isUploading = false;
-                event.target.value = ''; // сброс input
+                event.target.value = '';
             }
         },
 
@@ -400,22 +416,17 @@ function chatApp() {
             this.toast.type = type;
             this.toast.show = true;
             if (this.toast.timeout) clearTimeout(this.toast.timeout);
-            this.toast.timeout = setTimeout(() => {
-                this.toast.show = false;
-            }, 3000);
+            this.toast.timeout = setTimeout(() => { this.toast.show = false; }, 3000);
         },
         
         scrollToBottom() {
             this.$nextTick(() => {
                 const el = document.getElementById('chat-container');
-                if (el) {
-                    el.scrollTop = el.scrollHeight;
-                }
+                if (el) el.scrollTop = el.scrollHeight;
             });
         },
         
         setupMarkdown() {
-            // Инициализация Marked.js
             if (window.marked) {
                 window.parseMarkdown = (text) => window.marked.parse(text);
             } else {
@@ -424,13 +435,10 @@ function chatApp() {
         },
         
         stopGeneration() {
-            // Реализация остановки генерации (нужен AbortController в fetch)
-            window.location.reload(); // Временное решение
+            window.location.reload(); 
         },
         
         regenerate() {
-            // Логика повторной отправки последнего промпта
-            // (Пока оставим пустой или реализуем позже)
             this.showToast('Функция в разработке', 'info');
         }
     };
@@ -438,10 +446,8 @@ function chatApp() {
 
 
 // ==========================================
-// 3. PROFILE & PAYMENT LOGIC (бывший profile.js)
+// 3. PROFILE & PAYMENT LOGIC
 // ==========================================
-// Оставляем эти функции в глобальной области видимости, 
-// чтобы старые onclick="..." в HTML продолжали работать.
 
 let checkout = null;
 
@@ -452,10 +458,7 @@ function closeModal() {
     modal.classList.remove('active');
     setTimeout(() => {
         modal.style.display = 'none';
-        if (checkout) { 
-            checkout.destroy(); 
-            checkout = null; 
-        }
+        if (checkout) { checkout.destroy(); checkout = null; }
     }, 300);
 }
 
@@ -465,17 +468,10 @@ async function openPaymentModal() {
     const errorMsg = document.getElementById('error-msg');
     const modal = document.getElementById('payment-modal');
     
-    if (!amountInput || !btn || !modal) {
-        console.error("Payment modal elements not found");
-        return;
-    }
+    if (!amountInput || !btn || !modal) return;
 
     const amount = amountInput.value;
-    
-    if (amount < 10) { 
-        alert("Минимум 10р"); 
-        return; 
-    }
+    if (amount < 10) { alert("Минимум 10р"); return; }
     
     const originalText = btn.innerText;
     btn.disabled = true; 
@@ -491,47 +487,36 @@ async function openPaymentModal() {
         
         if (data.error) throw new Error(data.error);
 
-        // Показываем модальное окно
         modal.style.display = 'flex';
         setTimeout(() => { modal.classList.add('active'); }, 10);
         
-        // Инициализируем YooKassa виджет
         if (window.YooMoneyCheckoutWidget) {
             checkout = new window.YooMoneyCheckoutWidget({
                 confirmation_token: data.confirmation_token,
                 return_url: window.location.href,
                 customization: {
                     colors: {
-                        control_primary: '#a855f7', // Наш фиолетовый
+                        control_primary: '#a855f7',
                         control_primary_content: '#FFFFFF',
-                        background: '#18181b',      // Наш темный фон
+                        background: '#18181b',
                         border: '#3f3f46',
                         text: '#FFFFFF',
                         control_secondary: '#27272a'
                     },
                     modal: false
                 },
-                error_callback: function(error) { 
-                    console.log(error); 
-                    closeModal(); 
-                }
+                error_callback: function(error) { console.log(error); closeModal(); }
             });
-            
             checkout.render('yookassa-widget');
-            
             checkout.on('success', () => { 
                 checkout.destroy(); 
                 closeModal(); 
                 alert("Оплата прошла успешно!"); 
                 window.location.reload(); 
             });
-            
-            checkout.on('fail', () => { 
-                checkout.destroy(); 
-                closeModal(); 
-            });
+            checkout.on('fail', () => { checkout.destroy(); closeModal(); });
         } else {
-            alert("Ошибка загрузки платежной системы");
+            alert("Ошибка платежной системы");
         }
 
     } catch (e) {

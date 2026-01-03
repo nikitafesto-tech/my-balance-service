@@ -7,7 +7,6 @@ from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-# ВАЖНО: Добавлен импорт для обработки HTTP ошибок (404)
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # === ИМПОРТ РОУТЕРОВ ===
@@ -19,7 +18,6 @@ from app.services.s3 import upload_file_to_s3
 
 # === ИМПОРТЫ БАЗЫ ===
 from app.database import engine, get_db, Base
-# ДОБАВЛЕНО: Chat (нужен для поиска чата по токену)
 from app.models import UserWallet, UserSession, Chat
 
 # --- ЛОГИРОВАНИЕ ---
@@ -40,26 +38,24 @@ if os.path.exists(STATIC_DIR):
 
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
-# === ОБРАБОТЧИК ОШИБОК 404 (НОВОЕe) ===
+# === ОБРАБОТЧИК ОШИБОК 404 ===
 @app.exception_handler(StarletteHTTPException)
 async def custom_http_exception_handler(request: Request, exc: StarletteHTTPException):
     if exc.status_code == 404:
-        # Если запрос идет к API (например, фронтенд стучится), отдаем JSON
-        if request.url.path.startswith("/api/"):
+        # Если запрос идет к API, отдаем JSON
+        if request.url.path.startswith("/api/") or request.url.path.startswith("/chats/"):
             return JSONResponse({"detail": "Not Found"}, status_code=404)
-        # Если это обычный пользователь в браузере — показываем красивую страницу
+        # Иначе показываем HTML
         return templates.TemplateResponse("404.html", {"request": request}, status_code=404)
-    # Остальные ошибки (401, 403 и т.д.) отдаем как есть
     return JSONResponse({"detail": str(exc.detail)}, status_code=exc.status_code)
 
-# GLOBAL ERROR HANDLER (500)
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Global Error: {exc}", exc_info=True)
     return JSONResponse(status_code=500, content={"message": "Internal Server Error", "detail": str(exc)})
 
 # === ПОДКЛЮЧАЕМ РОУТЕРЫ ===
-app.include_router(chats.router)
+app.include_router(chats.router, prefix="/chats") 
 app.include_router(auth.router)
 app.include_router(payments.router)
 
@@ -80,6 +76,16 @@ def home(request: Request, db: Session = Depends(get_db)):
         "user_id": user.casdoor_id
     })
 
+# === НОВОЕ: Обработка прямых ссылок на чат ===
+@app.get("/chat/{chat_id}")
+def chat_page(chat_id: int, request: Request, db: Session = Depends(get_db)):
+    """
+    При обновлении страницы /chat/123 сервер должен вернуть
+    ту же оболочку (chat.html), что и главная страница.
+    Frontend сам распарсит URL и подгрузит нужный чат.
+    """
+    return home(request, db)
+
 @app.get("/login")
 def login_page(request: Request):
     return templates.TemplateResponse("signin.html", {"request": request})
@@ -96,17 +102,13 @@ def profile(request: Request, db: Session = Depends(get_db)):
         "avatar": user.avatar
     })
 
-# === НОВЫЙ МАРШРУТ: Публичный доступ к чату ===
 @app.get("/share/{token}")
 def shared_chat_page(token: str, request: Request, db: Session = Depends(get_db)):
-    """Страница просмотра расшаренного чата (публичная)"""
     chat = db.query(Chat).filter_by(share_token=token).first()
     
     if not chat:
-        # Используем стандартный обработчик 404
         raise StarletteHTTPException(status_code=404, detail="Chat not found")
         
-    # Сериализуем сообщения для шаблона
     messages = []
     for m in chat.messages:
         messages.append({

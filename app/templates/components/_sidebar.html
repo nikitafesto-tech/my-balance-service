@@ -22,6 +22,10 @@
             <i class="ph ph-caret-left text-lg"></i>
         </button>
         
+        <button @click="toggleSidebarCollapse()" x-show="sidebarCollapsed" class="w-full py-2 text-text-muted hover:text-text-primary">
+            <i class="ph ph-caret-right text-xl"></i>
+        </button>
+
         <button @click="sidebarOpen = false" class="md:hidden text-text-secondary">
             <i class="ph ph-x text-2xl"></i>
         </button>
@@ -29,7 +33,8 @@
 
     <div class="px-3 mb-4 space-y-3 flex-shrink-0">
         <button @click="startNewChat ? startNewChat() : window.location.href='/'" 
-                class="w-full flex items-center justify-center gap-3 px-3 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl transition-all shadow-lg shadow-primary-500/20 group relative overflow-hidden">
+                class="w-full flex items-center justify-center gap-3 px-3 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl transition-all shadow-lg shadow-primary-500/20 group relative overflow-hidden"
+                :title="sidebarCollapsed ? 'Новый чат' : ''">
             <i class="ph ph-plus text-lg"></i>
             <span class="font-medium whitespace-nowrap" x-show="!sidebarCollapsed">Новый чат</span>
         </button>
@@ -42,20 +47,31 @@
                    class="w-full bg-bg-tertiary border border-border rounded-lg pl-9 pr-3 py-2 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-primary transition">
         </div>
         
-        <button @click="toggleSidebarCollapse()" x-show="sidebarCollapsed" class="w-full py-2 text-text-muted hover:text-text-primary">
+        <button @click="toggleSidebarCollapse(); $nextTick(() => $el.parentElement.querySelector('input').focus())" 
+                x-show="sidebarCollapsed" 
+                class="w-full py-2 text-text-muted hover:text-text-primary flex justify-center">
             <i class="ph ph-magnifying-glass text-xl"></i>
         </button>
     </div>
 
     <div class="px-4 mb-2" x-show="!sidebarCollapsed">
-        <div class="flex items-center justify-between p-2 rounded-lg hover:bg-bg-tertiary transition-colors cursor-pointer" @click="toggleTempChat()">
-            <div class="flex items-center gap-2">
-                <i class="ph ph-clock-countdown text-lg" :class="isTempChat ? 'text-primary' : 'text-text-muted'"></i>
-                <span class="text-sm font-medium text-text-secondary">Временный чат</span>
+        <div class="flex items-center justify-between p-3 rounded-xl border border-border bg-bg-tertiary/50 hover:bg-bg-tertiary transition-all cursor-pointer group" 
+             @click="toggleTempChat()">
+            
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+                     :class="isTempChat ? 'bg-primary/20 text-primary' : 'bg-bg-elevated text-text-muted'">
+                    <i class="ph ph-clock-countdown text-lg"></i>
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-sm font-medium text-text-primary">Временный чат</span>
+                    <span class="text-[10px] text-text-muted" x-text="isTempChat ? 'Удалится через 24ч' : 'История сохраняется'"></span>
+                </div>
             </div>
+
             <div class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200"
                  :class="isTempChat ? 'bg-primary' : 'bg-gray-600'">
-                <span class="inline-block h-3 w-3 transform rounded-full bg-white transition duration-200"
+                <span class="inline-block h-3 w-3 transform rounded-full bg-white transition duration-200 shadow-sm"
                       :class="isTempChat ? 'translate-x-5' : 'translate-x-1'"></span>
             </div>
         </div>
@@ -87,7 +103,7 @@
                 <template x-for="chat in filteredChats" :key="chat.id">
                     <div class="group relative mb-1" x-data="{ menuOpen: false }">
                         
-                        <div x-show="renamingChatId === chat.id" class="px-2 py-1">
+                        <div x-show="renamingChatId === chat.id" class="px-2 py-1" x-show="!sidebarCollapsed">
                             <input type="text" x-model="renameTitle" 
                                    @keydown.enter="submitRename()"
                                    @keydown.escape="renamingChatId = null"
@@ -101,7 +117,8 @@
                                 class="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all border border-transparent" 
                                 :class="(activeChatId === chat.id) 
                                     ? 'bg-bg-elevated border-border shadow-sm text-text-primary' 
-                                    : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'">
+                                    : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'"
+                                :title="sidebarCollapsed ? chat.title : ''">
                             
                             <i class="text-lg flex-shrink-0" 
                                :class="chat.is_pinned ? 'ph-fill ph-push-pin text-primary' : 'ph ph-chat-circle'"></i>
