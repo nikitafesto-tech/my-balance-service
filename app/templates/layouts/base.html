@@ -6,38 +6,47 @@
     <title>{% block title %}Neirosetim{% endblock %}</title>
 
     {# Favicon #}
-    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <link rel="icon" type="image/svg+xml" href="/static/media/favicon.svg">
 
-    {# --- 1. CONFIG (Загружаем ДО Tailwind) --- #}
-    <script src="/static/js/tailwind.config.js"></script>
+    {# === ИСПРАВЛЕННЫЙ ПОРЯДОК СКРИПТОВ === #}
 
-    {# --- 2. TAILWIND CSS --- #}
+    {# 1. СНАЧАЛА Ядро Tailwind (создает объект tailwind) #}
     <script src="https://cdn.tailwindcss.com"></script>
 
-    {# --- 3. GLOBAL STYLES (Переменные и кастомизация) --- #}
+    {# 2. ПОТОМ Конфиг (использует объект tailwind) #}
+    <script src="/static/js/tailwind.config.js"></script>
+
+    {# 3. GLOBAL STYLES (Ваши кастомные стили) #}
     <link rel="stylesheet" href="/static/css/styles.css">
 
-    {# --- 4. THEME SCRIPT (Предотвращает мигание темы) --- #}
-    <script src="/static/js/theme.js"></script>
+    {# 4. THEME SCRIPT (Чтобы тема не моргала при загрузке) #}
+    <script>
+        (function() {
+            try {
+                const savedTheme = localStorage.getItem('theme');
+                const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                const theme = savedTheme ? savedTheme : (prefersDark ? 'dark' : 'light');
+                document.documentElement.setAttribute('data-theme', theme);
+            } catch (e) {}
+        })();
+    </script>
 
-    {# --- 5. CORE LIBS (Alpine.js для интерактивности) --- #}
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    {# 5. CORE LIBS (Alpine.js) #}
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
     
-    {# --- 6. ICONS (Phosphor Icons) --- #}
+    {# 6. ICONS (Phosphor Icons) #}
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
 
-    {# Место для скриптов конкретных страниц (например, KaTeX или YooKassa) #}
+    {# Места для вставок из других шаблонов #}
     {% block head_scripts %}{% endblock %}
-    
-    {# Место для доп. стилей #}
     {% block styles %}{% endblock %}
 </head>
 <body class="bg-bg text-text-primary antialiased min-h-screen flex flex-col selection:bg-primary selection:text-white">
     
-    {# Основной контент (сюда встанет либо страница входа, либо приложение с меню) #}
+    {# Основной контент #}
     {% block content %}{% endblock %}
 
-    {# Скрипты в конце body #}
+    {# Скрипты в конце страницы #}
     {% block scripts %}{% endblock %}
 </body>
 </html>

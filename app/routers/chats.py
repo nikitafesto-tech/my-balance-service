@@ -130,7 +130,10 @@ async def create_new_chat(
     db.commit()
     
     # ИСПРАВЛЕНО: user.casdoor_id и user.id
-    return generate_ai_response_stream(chat, user_msg, attachment_url, user.casdoor_id, user.id)
+    return StreamingResponse(
+        generate_ai_response_stream(chat, user_msg, attachment_url, user.casdoor_id, user.id),
+        media_type="text/event-stream"
+    )
 
 # === 5. Продолжить чат ===
 @router.post("/{chat_id}/message")
@@ -157,7 +160,10 @@ async def continue_chat(
     db.commit()
     
     # ИСПРАВЛЕНО: user.casdoor_id и user.id
-    return generate_ai_response_stream(chat, user_msg, attachment_url, user.casdoor_id, user.id)
+    return StreamingResponse(
+        generate_ai_response_stream(chat, user_msg, attachment_url, user.casdoor_id, user.id),
+        media_type="text/event-stream"
+    )
 
 @router.delete("/{chat_id}")
 def delete_chat(chat_id: int, request: Request, db: Session = Depends(get_db)):

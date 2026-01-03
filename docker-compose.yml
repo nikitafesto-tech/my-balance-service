@@ -43,7 +43,7 @@ services:
     build: .
     restart: always
     # === ВЕРНУЛИ КОМАНДУ АВТО-МИГРАЦИИ ===
-    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8081"
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8081 --proxy-headers --forwarded-allow-ips '*'"
     # =====================================
     ports:
       - "8081:8081"
