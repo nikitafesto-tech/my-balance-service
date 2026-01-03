@@ -65,6 +65,7 @@ function chatApp() {
         messages: [],
         userInput: '',
         activeChatId: null,
+        activeChatModel: null,  // Модель текущего чата
         chats: [],
         aiGroups: [], 
         chatSearch: '',
@@ -117,8 +118,18 @@ function chatApp() {
         },
 
         setModel(id, name) {
+            // Если модель не изменилась — ничего не делаем
+            if (this.model === id) return;
+            
+            const oldModel = this.model;
             this.model = id;
             this.updateCapabilities();
+            
+            // Если есть активный чат с другой моделью — начинаем новый чат
+            if (this.activeChatId && this.activeChatModel && this.activeChatModel !== id) {
+                this.startNewChat();
+                this.showToast(`Новый чат с ${name}`, 'info');
+            }
         },
 
         get currentModelName() {
@@ -183,6 +194,7 @@ function chatApp() {
 
         async startNewChat() {
             this.activeChatId = null;
+            this.activeChatModel = null;  // Сбрасываем модель чата
             this.messages = [];
             this.attachedFileUrl = null;
             window.history.pushState({}, '', '/');
@@ -212,6 +224,7 @@ function chatApp() {
                 
                 if (data.model) {
                     this.model = data.model;
+                    this.activeChatModel = data.model;  // Запоминаем модель чата
                     this.updateCapabilities();
                 }
                 
@@ -265,10 +278,12 @@ function chatApp() {
 
                 if (!response.ok) throw new Error('Network error');
 
+                // Если это новый чат — получаем ID и запоминаем модель
                 if (!this.activeChatId) {
                     const idHeader = response.headers.get('X-Chat-Id');
                     if (idHeader) {
                         this.activeChatId = parseInt(idHeader);
+                        this.activeChatModel = this.model;  // Запоминаем модель нового чата
                         window.history.pushState({}, '', `/chat/${this.activeChatId}`);
                         this.loadChats();
                     }
