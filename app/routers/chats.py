@@ -141,7 +141,8 @@ def get_chat_history(chat_id: int, request: Request, db: Session = Depends(get_d
         "is_pinned": chat.is_pinned,
         "share_token": chat.share_token,
         "expires_at": chat.expires_at.isoformat() if chat.expires_at else None,
-        "messages": [{"role": m.role, "content": m.content, "image_url": m.image_url} for m in chat.messages]
+        # 👇 ИСПРАВЛЕНИЕ: Добавили id
+        "messages": [{"id": m.id, "role": m.role, "content": m.content, "image_url": m.image_url} for m in chat.messages]
     }
 
 
