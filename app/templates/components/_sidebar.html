@@ -117,66 +117,77 @@
 
                 <template x-for="chat in filteredChats" :key="chat.id">
                     <div class="group relative mb-1" x-data="{ menuOpen: false }">
-                        
-                        <div x-show="renamingChatId === chat.id" class="px-2 py-1" x-show="!sidebarCollapsed">
-                            <input type="text" x-model="renameTitle" 
-                                   @keydown.enter="submitRename()"
-                                   @keydown.escape="renamingChatId = null"
-                                   @blur="submitRename()"
-                                   x-init="$nextTick(() => $el.focus())"
-                                   class="w-full bg-bg-tertiary border border-primary rounded px-2 py-1 text-sm text-text-primary focus:outline-none">
-                        </div>
+    
+    {# 1. РЕЖИМ ПЕРЕИМЕНОВАНИЯ (Input) #}
+    <div x-show="renamingChatId === chat.id" class="px-2 py-1" x-show="!sidebarCollapsed">
+        <input type="text" x-model="renameTitle" 
+               @keydown.enter="submitRename()"
+               @keydown.escape="renamingChatId = null"
+               @blur="submitRename()"
+               x-init="$nextTick(() => $el.focus())"
+               class="w-full bg-bg-tertiary border border-primary rounded px-2 py-1 text-sm text-text-primary focus:outline-none">
+    </div>
 
-                        <button x-show="renamingChatId !== chat.id"
-                                @click="loadChat(chat.id)" 
-                                class="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all border border-transparent" 
-                                :class="(activeChatId === chat.id) 
-                                    ? 'bg-bg-elevated border-border shadow-sm text-text-primary' 
-                                    : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'"
-                                :title="sidebarCollapsed ? chat.title : ''">
-                            
-                            <i class="text-lg flex-shrink-0" 
-                               :class="chat.is_pinned ? 'ph-fill ph-push-pin text-primary' : 'ph ph-chat-circle'"></i>
-                            
-                            <div class="flex-1 truncate text-sm" x-show="!sidebarCollapsed" x-text="chat.title"></div>
-                            
-                            <div class="relative" x-show="!sidebarCollapsed" @click.stop>
-                                <button @click="menuOpen = !menuOpen; activeChatMenu = chat.id" 
-                                        class="p-1 text-text-muted hover:text-text-primary rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                                        :class="menuOpen ? 'opacity-100' : ''">
-                                    <i class="ph ph-dots-three-vertical"></i>
-                                </button>
+    {# 2. РЕЖИМ ПРОСМОТРА (Блок чата) #}
+    {# ВАЖНО: Используем DIV вместо BUTTON для контейнера #}
+    <div x-show="renamingChatId !== chat.id"
+            @click="loadChat(chat.id)" 
+            class="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg transition-all border border-transparent cursor-pointer relative group" 
+            :class="(activeChatId === chat.id) 
+                ? 'bg-bg-elevated border-border shadow-sm text-text-primary' 
+                : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'"
+            :title="chat.title">
+        
+        {# ЛЕВАЯ ЧАСТЬ: Иконка + Название (min-w-0 не дает тексту выталкивать меню) #}
+        <div class="flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
+            <i class="text-lg flex-shrink-0" 
+               :class="chat.is_pinned ? 'ph-fill ph-push-pin text-primary' : 'ph ph-chat-circle'"></i>
+            
+            <span class="truncate text-sm font-medium" 
+                  x-show="!sidebarCollapsed" 
+                  x-text="chat.title"></span>
+        </div>
+        
+        {# ПРАВАЯ ЧАСТЬ: Меню (3 точки) #}
+        <div class="relative flex-shrink-0" x-show="!sidebarCollapsed" @click.stop>
+            <button @click="menuOpen = !menuOpen; activeChatMenu = chat.id" 
+                    class="p-1 text-text-muted hover:text-text-primary rounded transition-opacity"
+                    :class="(menuOpen || activeChatId === chat.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'">
+                <i class="ph ph-dots-three-vertical"></i>
+            </button>
 
-                                <div x-show="menuOpen" 
-                                     @click.outside="menuOpen = false"
-                                     class="absolute right-0 top-8 w-40 bg-bg-elevated border border-border rounded-xl shadow-xl z-50 py-1 flex flex-col"
-                                     x-transition>
-                                    
-                                    <button @click="togglePinChat(chat.id); menuOpen = false" class="flex items-center gap-2 px-3 py-2 text-xs hover:bg-bg-hover text-text-primary">
-                                        <i class="ph" :class="chat.is_pinned ? 'ph-push-pin-slash' : 'ph-push-pin'"></i>
-                                        <span x-text="chat.is_pinned ? 'Открепить' : 'Закрепить'"></span>
-                                    </button>
-                                    
-                                    <button @click="shareChat(chat.id); menuOpen = false" class="flex items-center gap-2 px-3 py-2 text-xs hover:bg-bg-hover text-text-primary">
-                                        <i class="ph ph-share-network"></i>
-                                        <span>Поделиться</span>
-                                    </button>
-                                    
-                                    <button @click="startRenaming(chat.id, chat.title); menuOpen = false" class="flex items-center gap-2 px-3 py-2 text-xs hover:bg-bg-hover text-text-primary">
-                                        <i class="ph ph-pencil-simple"></i>
-                                        <span>Переименовать</span>
-                                    </button>
-                                    
-                                    <div class="h-px bg-border my-1"></div>
-                                    
-                                    <button @click="deleteChat(chat.id)" class="flex items-center gap-2 px-3 py-2 text-xs hover:bg-red-500/10 text-danger">
-                                        <i class="ph ph-trash"></i>
-                                        <span>Удалить</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </button>
-                    </div>
+            {# Выпадающее меню #}
+            <div x-show="menuOpen" 
+                 @click.outside="menuOpen = false"
+                 class="absolute right-0 top-8 w-48 bg-bg-elevated border border-border rounded-xl shadow-xl z-50 py-1 flex flex-col"
+                 x-transition.origin.top.right
+                 x-cloak>
+                
+                <button @click="togglePinChat(chat.id); menuOpen = false" class="flex items-center gap-2 px-3 py-2.5 text-xs hover:bg-bg-hover text-text-primary transition-colors text-left w-full">
+                    <i class="ph text-base" :class="chat.is_pinned ? 'ph-push-pin-slash' : 'ph-push-pin'"></i>
+                    <span x-text="chat.is_pinned ? 'Открепить' : 'Закрепить'"></span>
+                </button>
+                
+                <button @click="shareChat(chat.id); menuOpen = false" class="flex items-center gap-2 px-3 py-2.5 text-xs hover:bg-bg-hover text-text-primary transition-colors text-left w-full">
+                    <i class="ph ph-share-network text-base"></i>
+                    <span>Поделиться</span>
+                </button>
+                
+                <button @click="startRenaming(chat.id, chat.title); menuOpen = false" class="flex items-center gap-2 px-3 py-2.5 text-xs hover:bg-bg-hover text-text-primary transition-colors text-left w-full">
+                    <i class="ph ph-pencil-simple text-base"></i>
+                    <span>Переименовать</span>
+                </button>
+                
+                <div class="h-px bg-border my-1"></div>
+                
+                <button @click="deleteChat(chat.id)" class="flex items-center gap-2 px-3 py-2.5 text-xs hover:bg-red-500/10 text-danger transition-colors text-left w-full">
+                    <i class="ph ph-trash text-base"></i>
+                    <span>Удалить</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
                 </template>
             </div>
         </template>
