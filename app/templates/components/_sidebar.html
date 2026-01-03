@@ -4,34 +4,44 @@
         sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
         sidebarCollapsed ? 'w-20' : 'w-80'
     ]"
+    x-data="{ currentTheme: localStorage.getItem('theme') || 'dark' }"
     x-cloak
 >
-    <div class="flex items-center justify-between h-[var(--header-height)] px-4 flex-shrink-0">
-        <a href="/" class="flex items-center gap-2 font-bold text-xl tracking-tight text-text-primary overflow-hidden whitespace-nowrap"
+    {# === HEADER (Лого + Кнопка) === #}
+    <div class="flex items-center h-[var(--header-height)] px-4 flex-shrink-0"
+         :class="sidebarCollapsed ? 'justify-center' : 'justify-between'">
+        
+        {# Логотип (Виден ТОЛЬКО когда меню открыто) #}
+        <a href="/" class="flex items-center gap-2 font-bold text-xl tracking-tight text-text-primary overflow-hidden whitespace-nowrap transition-opacity duration-200"
            x-show="!sidebarCollapsed">
             <img src="/static/media/logo-desktop.svg" alt="Logo" class="h-8 w-auto">
         </a>
-        
-        <a href="/" class="flex justify-center w-full" x-show="sidebarCollapsed">
-            <img src="/static/media/logo-mobile.svg" alt="Logo" class="h-8 w-8">
-        </a>
 
+        {# 1. Кнопка СВЕРНУТЬ (Видна, когда меню ОТКРЫТО) #}
         <button @click="toggleSidebarCollapse()" 
-                class="hidden md:flex p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-hover rounded-lg transition-colors"
-                x-show="!sidebarCollapsed">
+                class="flex p-1.5 text-text-primary bg-bg-tertiary rounded-lg border border-border hover:bg-bg-hover transition-colors"
+                x-show="!sidebarCollapsed"
+                title="Свернуть">
             <i class="ph ph-caret-left text-lg"></i>
         </button>
-        
-        <button @click="toggleSidebarCollapse()" x-show="sidebarCollapsed" class="w-full py-2 text-text-muted hover:text-text-primary">
+
+        {# 2. Кнопка РАЗВЕРНУТЬ (Видна, когда меню СВЕРНУТО) #}
+        <button @click="toggleSidebarCollapse()" 
+                x-show="sidebarCollapsed" 
+                class="flex w-full justify-center py-2 text-text-primary hover:text-white transition-colors"
+                title="Развернуть">
             <i class="ph ph-caret-right text-xl"></i>
         </button>
 
-        <button @click="sidebarOpen = false" class="md:hidden text-text-secondary">
+        {# Кнопка ЗАКРЫТЬ (Только на мобильных - крестик) #}
+        <button @click="sidebarOpen = false" class="md:hidden text-text-secondary ml-auto">
             <i class="ph ph-x text-2xl"></i>
         </button>
     </div>
-
+    
+    {# === MAIN ACTIONS (Новый чат + Поиск) === #}
     <div class="px-3 mb-4 space-y-3 flex-shrink-0">
+        {# Кнопка Новый чат #}
         <button @click="startNewChat ? startNewChat() : window.location.href='/'" 
                 class="w-full flex items-center justify-center gap-3 px-3 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-xl transition-all shadow-lg shadow-primary-500/20 group relative overflow-hidden"
                 :title="sidebarCollapsed ? 'Новый чат' : ''">
@@ -39,6 +49,7 @@
             <span class="font-medium whitespace-nowrap" x-show="!sidebarCollapsed">Новый чат</span>
         </button>
 
+        {# Поиск (Развернутый) #}
         <div class="relative" x-show="!sidebarCollapsed && typeof chatSearch !== 'undefined'">
             <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"></i>
             <input type="text" 
@@ -47,13 +58,16 @@
                    class="w-full bg-bg-tertiary border border-border rounded-lg pl-9 pr-3 py-2 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-primary transition">
         </div>
         
+        {# Поиск (Свернутый - иконка) #}
         <button @click="toggleSidebarCollapse(); $nextTick(() => $el.parentElement.querySelector('input').focus())" 
                 x-show="sidebarCollapsed" 
-                class="w-full py-2 text-text-muted hover:text-text-primary flex justify-center">
+                class="w-full py-2 text-text-muted hover:text-text-primary flex justify-center"
+                title="Поиск">
             <i class="ph ph-magnifying-glass text-xl"></i>
         </button>
     </div>
 
+    {# === ВРЕМЕННЫЙ ЧАТ === #}
     <div class="px-4 mb-2" x-show="!sidebarCollapsed">
         <div class="flex items-center justify-between p-3 rounded-xl border border-border bg-bg-tertiary/50 hover:bg-bg-tertiary transition-all cursor-pointer group" 
              @click="toggleTempChat()">
@@ -77,6 +91,7 @@
         </div>
     </div>
 
+    {# === СПИСОК ЧАТОВ === #}
     <div class="flex-1 overflow-y-auto px-2 space-y-1 custom-scrollbar">
         <template x-if="typeof filteredChats !== 'undefined' && filteredChats.length > 0">
             <div>
@@ -171,7 +186,24 @@
         </div>
     </div>
 
-    <div class="p-3 border-t border-border bg-bg-secondary flex-shrink-0">
+    {# === FOOTER (Тема и Профиль) === #}
+    <div class="p-3 border-t border-border bg-bg-secondary flex-shrink-0 flex flex-col gap-1">
+        
+        {# 1. КНОПКА СМЕНЫ ТЕМЫ #}
+        <button @click="window.toggleTheme(); currentTheme = localStorage.getItem('theme')" 
+                class="flex items-center gap-3 p-2 rounded-xl hover:bg-bg-hover transition-colors cursor-pointer group w-full text-text-secondary hover:text-text-primary"
+                :title="currentTheme === 'dark' ? 'Включить светлую тему' : 'Включить темную тему'">
+            
+            <div class="w-9 h-9 rounded-full bg-bg-tertiary flex items-center justify-center border border-border group-hover:border-primary/50 transition-colors">
+                 <i class="ph text-lg" :class="currentTheme === 'dark' ? 'ph-moon' : 'ph-sun'"></i>
+            </div>
+            
+            <div class="flex-1 text-left text-sm font-medium" x-show="!sidebarCollapsed">
+                <span x-text="currentTheme === 'dark' ? 'Тёмная тема' : 'Светлая тема'"></span>
+            </div>
+        </button>
+
+        {# 2. ПРОФИЛЬ #}
         <a href="/profile" class="flex items-center gap-3 p-2 rounded-xl hover:bg-bg-hover transition-colors cursor-pointer group">
             {% if avatar %}
                 <img src="{{ avatar }}" class="w-9 h-9 rounded-full object-cover border border-border">
